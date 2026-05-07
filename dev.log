@@ -1,0 +1,12 @@
+
+> staley-street-weather@1.0.0 dev
+> concurrently "node server/index.mjs" "vite --host 0.0.0.0"
+
+[0] Staley Street Weather API listening on http://localhost:8787
+[1] 
+[1]   [32m[1mVITE[22m v6.4.2[39m  [2mready in [0m[1m419[22m[2m[0m ms[22m
+[1] 
+[1]   [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
+[1]   [32m➜[39m  [1mNetwork[22m: [36mhttp://26.157.29.27:[1m5173[22m/[39m
+[1]   [32m➜[39m  [1mNetwork[22m: [36mhttp://169.254.83.107:[1m5173[22m/[39m
+[1]   [32m➜[39m  [1mNetwork[22m: [36mhttp://172.16.57.126:[1m5173[22m/[39m
