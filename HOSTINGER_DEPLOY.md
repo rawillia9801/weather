@@ -4,7 +4,7 @@ This app is not a static-only Vite site. It needs the Node/Express server becaus
 
 If the live page looks unstyled or says every value is unavailable while localhost is correct, check two things:
 
-1. The deployed `index.html` and `/assets/*` files must come from the same `npm run build` output. Upload the entire `dist` folder contents, not only `index.html`.
+1. The deployed `index.html` and `/assets/*` files must come from the same `npm run build` output. Upload the entire `dist` folder contents, not only `index.html`. The production build inlines the dashboard CSS into `index.html` to avoid stale CDN stylesheet mismatches.
 2. `/api/health` on the public domain must return JSON. If it returns Hostinger HTML/404, the Node backend is not mounted behind that domain.
 
 ## Current domain mismatch checks
@@ -37,7 +37,7 @@ should return JSON like:
 {"ok":true,"stationId":"KVAMARIO42","provider":"weather-underground-pws"}
 ```
 
-If `/api/health` returns `404`, the frontend may load but live weather, settings, camera bridge, daily brief send, and Supabase-backed operations will not work from that domain.
+If `/api/health` or `/api/weather` returns `404`, the frontend may load but live weather, settings, camera bridge, daily brief send, and Supabase-backed operations will not work from that domain. A Vite/static-only deployment cannot execute the JavaScript files in `/api`; those routes require Hostinger's Node.js Web App mode, Vercel-style functions, or the Express server.
 
 ## Hostinger Node app settings
 
@@ -94,7 +94,7 @@ Optional radar context:
 
 ## Static frontend + separate Node backend
 
-If Hostinger serves the React app as static files on `https://staleyclimate.info` and runs the Node backend on another URL, set this at build time:
+This is optional and is not needed when same-domain `/api/*` routes are working. Only use it if Hostinger serves the React app as static files on `https://staleyclimate.info` and runs the Node backend on another URL. In that split setup, set this at build time:
 
 ```txt
 VITE_API_BASE_URL=https://your-node-backend-host.example.com

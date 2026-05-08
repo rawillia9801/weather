@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "concurrently \"node server/index.mjs\" \"vite --host 0.0.0.0\"",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node server/inline-css.mjs",
     "prestart": "node server/ensure-dist.mjs",
     "start": "node server/index.mjs",
     "preview": "vite preview --host 0.0.0.0"
