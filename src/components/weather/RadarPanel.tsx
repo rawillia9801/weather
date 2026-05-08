@@ -12,20 +12,31 @@ export function RadarPanel({ radar }: { radar: RadarMetadata }) {
           <path d="M128 -20 C135 60, 170 130, 155 240" className="road" />
           <path d="M8 215 C70 175, 112 160, 178 176 S290 208, 420 165" className="road" />
         </svg>
-        <div className="radar-rain rain-a" />
-        <div className="radar-rain rain-b" />
-        <div className="radar-rain rain-c" />
+        {radar.configured && (
+          <>
+            <div className="radar-rain rain-a" />
+            <div className="radar-rain rain-b" />
+            <div className="radar-rain rain-c" />
+          </>
+        )}
         <span className="map-label abingdon">{radar.labels[0]}</span>
         <span className="map-label bristol">{radar.labels[1]}</span>
         <span className="map-label wytheville">{radar.labels[2]}</span>
         <span className="station-dot" aria-label="Station location" />
       </div>
-      <div className="radar-placeholder-label">Live radar provider not configured</div>
+      <div className={`radar-placeholder-label ${radar.configured ? 'configured' : ''}`}>
+        {radar.statusLabel}
+      </div>
       <div className="radar-legend">
         {radar.legend.map((item) => (
           <span key={item}>{item}</span>
         ))}
       </div>
+      {radar.externalUrl && (
+        <a className="radar-open-link" href={radar.externalUrl} target="_blank" rel="noreferrer">
+          Open {radar.sourceName}
+        </a>
+      )}
     </GlassCard>
   );
 }

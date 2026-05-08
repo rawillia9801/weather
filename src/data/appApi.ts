@@ -1,21 +1,36 @@
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+
+function apiUrl(path: string) {
+  return `${API_BASE_URL}${path}`;
+}
+
 export async function apiGet<T>(path: string): Promise<T> {
-  const response = await fetch(path, { headers: { Accept: 'application/json' } });
-  const text = await response.text();
-  const payload = text ? JSON.parse(text) : {};
+  const response = await fetch(apiUrl(path), { headers: { Accept: 'application/json' } });
+  const payload = await readJsonResponse(response, path);
   if (!response.ok) throw new Error(payload.error || 'Request failed');
   return payload;
 }
 
 export async function apiSend<T>(path: string, method: string, body?: unknown): Promise<T> {
-  const response = await fetch(path, {
+  const response = await fetch(apiUrl(path), {
     method,
     headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
   });
-  const text = await response.text();
-  const payload = text ? JSON.parse(text) : {};
+  const payload = await readJsonResponse(response, path);
   if (!response.ok) throw new Error(payload.error || 'Request failed');
   return payload;
+}
+
+async function readJsonResponse(response: Response, path: string) {
+  const text = await response.text();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    const preview = text.replace(/\s+/g, ' ').slice(0, 120);
+    throw new Error(`${path} returned non-JSON (${response.status} ${response.statusText}): ${preview}`);
+  }
 }
 
 export interface AppConfig {

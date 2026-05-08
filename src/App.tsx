@@ -40,10 +40,13 @@ function useStationData() {
   async function load() {
     try {
       setLoading(true);
-      const [weather, appConfig] = await Promise.all([
-        fetchWeatherStationData(),
-        apiGet<AppConfig>('/api/app-config'),
-      ]);
+      const weather = await fetchWeatherStationData();
+      let appConfig: AppConfig | null = null;
+      try {
+        appConfig = await apiGet<AppConfig>('/api/app-config');
+      } catch (configError) {
+        console.warn(configError);
+      }
       setData(weather);
       setConfig(appConfig);
       setError('');
@@ -59,6 +62,13 @@ function useStationData() {
     const timer = window.setInterval(load, 120000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!data && error && !loading) {
+      const retry = window.setTimeout(load, 3500);
+      return () => window.clearTimeout(retry);
+    }
+  }, [data, error, loading]);
 
   return { data, config, error, loading, reload: load };
 }
@@ -88,6 +98,10 @@ function AppShell() {
         <div>
           <h1>Station Data Offline</h1>
           <p>{error}</p>
+          <button className="retry-button" onClick={reload} type="button">
+            <RefreshCw className="h-4 w-4" />
+            Retry live station
+          </button>
         </div>
       </main>
     );

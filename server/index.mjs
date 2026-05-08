@@ -28,7 +28,29 @@ const cfg = {
   twilioApiKeySid: process.env.TWILIO_API_KEY_SID,
   twilioApiKeySecret: process.env.TWILIO_API_KEY_SECRET,
   twilioFromNumber: process.env.TWILIO_FROM_NUMBER,
+  radarContextUrl: process.env.RADAR_CONTEXT_URL || '',
+  radarProviderName: process.env.RADAR_PROVIDER_NAME || 'Radar provider',
+  allowedOrigins: [
+    process.env.SITE_URL,
+    process.env.NEXT_PUBLIC_SITE_URL,
+    process.env.VITE_SITE_URL,
+    process.env.VITE_API_ALLOWED_ORIGIN,
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+  ].filter(Boolean),
 };
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && cfg.allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  }
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
 
 app.use(express.json({ limit: '1mb' }));
 
@@ -227,7 +249,84 @@ function alertsFromNationalWeatherService(payload) {
   });
 }
 
-function buildStationData({ current, forecast, hourlyTrend, alerts, daily }) {
+async function loadAirQuality() {
+  const url = new URL('https://air-quality-api.open-meteo.com/v1/air-quality');
+  url.searchParams.set('latitude', String(cfg.latitude));
+  url.searchParams.set('longitude', String(cfg.longitude));
+  url.searchParams.set('current', 'us_aqi,pm2_5,pm10,ozone,carbon_monoxide,nitrogen_dioxide');
+  url.searchParams.set('timezone', cfg.timeZone);
+
+  try {
+    const payload = await getJson(url);
+    const current = payload?.current || {};
+    const aqi = Number.isFinite(Number(current.us_aqi)) ? Math.round(Number(current.us_aqi)) : null;
+    return {
+      aqi,
+      label: getAqiLabel(aqi),
+      message: getAqiMessage(aqi),
+      source: 'Open-Meteo Air Quality',
+      updatedAt: current.time || null,
+      pollutants: [
+        { label: 'PM2.5', value: formatPollutant(current.pm2_5) },
+        { label: 'PM10', value: formatPollutant(current.pm10) },
+        { label: 'OZONE', value: formatPollutant(current.ozone) },
+        { label: 'CO', value: formatPollutant(current.carbon_monoxide) },
+        { label: 'NO2', value: formatPollutant(current.nitrogen_dioxide) },
+      ].filter((item) => item.value !== 'n/a'),
+    };
+  } catch {
+    return fallbackAirQuality('AQI source is not configured or is temporarily unavailable.', 'Open-Meteo Air Quality');
+  }
+}
+
+function formatPollutant(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 'n/a';
+  return number >= 100 ? Math.round(number) : Number(number.toFixed(1));
+}
+
+function getAqiLabel(aqi) {
+  if (aqi == null) return 'Unavailable';
+  if (aqi <= 50) return 'Good';
+  if (aqi <= 100) return 'Moderate';
+  if (aqi <= 150) return 'Unhealthy SG';
+  if (aqi <= 200) return 'Unhealthy';
+  if (aqi <= 300) return 'Very Unhealthy';
+  return 'Hazardous';
+}
+
+function getAqiMessage(aqi) {
+  if (aqi == null) return 'AQI source is unavailable right now.';
+  if (aqi <= 50) return 'Great day to be outside!';
+  if (aqi <= 100) return 'Acceptable air quality for most outdoor plans.';
+  if (aqi <= 150) return 'Sensitive groups should reduce prolonged outdoor exertion.';
+  return 'Limit prolonged outdoor exposure.';
+}
+
+function fallbackAirQuality(message = 'AQI source is not configured.', source) {
+  return {
+    aqi: null,
+    label: 'Unavailable',
+    message,
+    source,
+    updatedAt: null,
+    pollutants: [],
+  };
+}
+
+function buildRadarMetadata() {
+  const configured = Boolean(cfg.radarContextUrl);
+  return {
+    labels: ['Abingdon', 'Bristol', 'Wytheville'],
+    legend: ['Light', 'Moderate', 'Heavy', 'Severe'],
+    configured,
+    sourceName: configured ? cfg.radarProviderName : 'Not configured',
+    externalUrl: configured ? cfg.radarContextUrl : undefined,
+    statusLabel: configured ? cfg.radarProviderName : 'Live radar provider not configured',
+  };
+}
+
+function buildStationData({ current, forecast, hourlyTrend, alerts, daily, airQuality = fallbackAirQuality() }) {
   const now = new Date();
   const firstForecast = forecast[0] || {};
   const currentCondition = classifyCondition(current.conditionText || firstForecast.condition);
@@ -259,12 +358,7 @@ function buildStationData({ current, forecast, hourlyTrend, alerts, daily }) {
     forecast,
     hourlyTrend,
     alerts,
-    airQuality: {
-      aqi: null,
-      label: 'Unavailable',
-      message: 'AQI source is not configured.',
-      pollutants: [],
-    },
+    airQuality,
     moon: {
       phase: daily?.moonPhase?.[0] || 'Waning Gibbous',
       illumination: 76,
@@ -278,10 +372,7 @@ function buildStationData({ current, forecast, hourlyTrend, alerts, daily }) {
       visible: '14h 45m',
       moonset: compactTime(daily?.moonsetTimeLocal?.[0]) || '2:43 PM',
     },
-    radar: {
-      labels: ['Abingdon', 'Bristol', 'Wytheville'],
-      legend: ['Light', 'Moderate', 'Heavy', 'Severe'],
-    },
+    radar: buildRadarMetadata(),
     precipitation: buildPrecipitation(current),
     lightning: {
       total: currentCondition === 'Thunderstorms' ? 12 : 0,
@@ -446,6 +537,8 @@ function buildIntegrationStatus(rows) {
     integration_name: name,
     configured:
       name === 'Weather Underground PWS' ? Boolean(cfg.weatherKey) :
+      name === 'Radar source' ? Boolean(cfg.radarContextUrl) :
+      name === 'AQI source' ? true :
       name === 'Camera source' ? Boolean(cfg.cameraUrl) :
       name === 'Supabase' ? supabaseConfigured() :
       name === 'Resend' ? Boolean(cfg.resendApiKey) :
@@ -646,12 +739,15 @@ async function loadWeatherUndergroundStation() {
     alerts = nws.alerts;
   }
 
+  const airQuality = await loadAirQuality();
+
   return buildStationData({
     current: readPwsCurrent(currentPayload),
     forecast,
     hourlyTrend,
     alerts,
     daily: dailyPayload,
+    airQuality,
   });
 }
 

@@ -4,6 +4,9 @@ dist
 .env.*
 !.env.example
 *.local
+dev.log
+*.tsbuildinfo
+dashboard-check*.png
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

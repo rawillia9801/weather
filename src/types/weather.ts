@@ -59,6 +59,8 @@ export interface AirQuality {
   label: string;
   message: string;
   pollutants: { label: string; value: number | string }[];
+  source?: string;
+  updatedAt?: string | null;
 }
 
 export interface MoonData {
@@ -108,6 +110,10 @@ export interface HourlyTrendPoint {
 export interface RadarMetadata {
   labels: string[];
   legend: string[];
+  configured: boolean;
+  sourceName: string;
+  externalUrl?: string;
+  statusLabel: string;
 }
 
 export interface WeatherStationData {
