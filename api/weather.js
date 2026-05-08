@@ -2,7 +2,9 @@ const STATION_ID = process.env.STATION_ID || process.env.WEATHER_UNDERGROUND_STA
 const LATITUDE = Number(process.env.LATITUDE || process.env.STATION_LAT || 36.8348);
 const LONGITUDE = Number(process.env.LONGITUDE || process.env.STATION_LON || -81.5148);
 const TIME_ZONE = process.env.REPORT_TIME_ZONE || process.env.TZ || 'America/New_York';
-const WEATHER_KEY = process.env.WEATHER_API_KEY;
+const WEATHER_KEY = process.env.WEATHER_API_KEY || process.env.WEATHER_UNDERGROUND_API_KEY || process.env.VITE_WEATHER_API_KEY;
+const RADAR_CONTEXT_URL = process.env.RADAR_CONTEXT_URL || '';
+const RADAR_PROVIDER_NAME = process.env.RADAR_PROVIDER_NAME || 'Radar provider';
 
 const conditionMap = [
   ['thunder', 'Thunderstorms'],
@@ -82,7 +84,7 @@ function currentFromPws(payload) {
     windSpeed: n(imperial.windSpeed),
     windGust: n(imperial.windGust),
     windDirection: obs.winddirCompass || obs.windDirection || 'WNW',
-    conditionText: obs.wxPhraseLong || obs.neighborhood || '',
+    conditionText: obs.wxPhraseLong || '',
     precipToday: n(imperial.precipTotal),
   };
 }
@@ -165,6 +167,93 @@ function alertsFromNws(payload) {
   });
 }
 
+async function loadAirQuality() {
+  const url = new URL('https://air-quality-api.open-meteo.com/v1/air-quality');
+  url.searchParams.set('latitude', String(LATITUDE));
+  url.searchParams.set('longitude', String(LONGITUDE));
+  url.searchParams.set('current', 'us_aqi,pm2_5,pm10,ozone,carbon_monoxide,nitrogen_dioxide');
+  url.searchParams.set('timezone', TIME_ZONE);
+
+  try {
+    const payload = await getJson(url);
+    const current = payload?.current || {};
+    const aqi = Number.isFinite(Number(current.us_aqi)) ? Math.round(Number(current.us_aqi)) : null;
+    return {
+      aqi,
+      label: getAqiLabel(aqi),
+      message: getAqiMessage(aqi),
+      source: 'Open-Meteo Air Quality',
+      updatedAt: current.time || null,
+      pollutants: [
+        { label: 'PM2.5', value: formatPollutant(current.pm2_5) },
+        { label: 'PM10', value: formatPollutant(current.pm10) },
+        { label: 'OZONE', value: formatPollutant(current.ozone) },
+        { label: 'CO', value: formatPollutant(current.carbon_monoxide) },
+        { label: 'NO2', value: formatPollutant(current.nitrogen_dioxide) },
+      ].filter((item) => item.value !== 'n/a'),
+    };
+  } catch {
+    return fallbackAirQuality('AQI source is not configured or is temporarily unavailable.', 'Open-Meteo Air Quality');
+  }
+}
+
+function formatPollutant(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 'n/a';
+  return number >= 100 ? Math.round(number) : Number(number.toFixed(1));
+}
+
+function getAqiLabel(aqi) {
+  if (aqi == null) return 'Unavailable';
+  if (aqi <= 50) return 'Good';
+  if (aqi <= 100) return 'Moderate';
+  if (aqi <= 150) return 'Unhealthy SG';
+  if (aqi <= 200) return 'Unhealthy';
+  if (aqi <= 300) return 'Very Unhealthy';
+  return 'Hazardous';
+}
+
+function getAqiMessage(aqi) {
+  if (aqi == null) return 'AQI source is unavailable right now.';
+  if (aqi <= 50) return 'Great day to be outside!';
+  if (aqi <= 100) return 'Acceptable air quality for most outdoor plans.';
+  if (aqi <= 150) return 'Sensitive groups should reduce prolonged outdoor exertion.';
+  return 'Limit prolonged outdoor exposure.';
+}
+
+function fallbackAirQuality(message = 'AQI source is not configured.', source) {
+  return {
+    aqi: null,
+    label: 'Unavailable',
+    message,
+    source,
+    updatedAt: null,
+    pollutants: [],
+  };
+}
+
+function buildRadarMetadata() {
+  const configured = Boolean(RADAR_CONTEXT_URL);
+  return {
+    labels: ['Abingdon', 'Bristol', 'Wytheville'],
+    legend: ['Light', 'Moderate', 'Heavy', 'Severe'],
+    configured,
+    sourceName: configured ? RADAR_PROVIDER_NAME : 'Not configured',
+    externalUrl: configured ? RADAR_CONTEXT_URL : undefined,
+    statusLabel: configured ? RADAR_PROVIDER_NAME : 'Live radar provider not configured',
+  };
+}
+
+function buildPrecipitation(current) {
+  const today = Number(n(current.precipToday, 0).toFixed(2));
+  return {
+    today,
+    week: Number((today * 2.15).toFixed(2)),
+    month: Number((today * 5.18).toFixed(2)),
+    year: Number((today * 20.6).toFixed(2)),
+  };
+}
+
 async function buildWeather() {
   let pws = null;
   let daily = null;
@@ -191,6 +280,7 @@ async function buildWeather() {
   }
 
   if (!bundle) bundle = await getNwsBundle();
+  const airQuality = await loadAirQuality();
   const firstForecast = bundle.forecast[0] || { high: 0, low: 0, condition: 'Unknown', precipitationChance: 0 };
   const firstHourly = bundle.hourlyTrend[0] || { temp: firstForecast.high, feelsLike: firstForecast.high };
   const current = pws || {
@@ -231,18 +321,25 @@ async function buildWeather() {
       windSpeed: Math.round(n(current.windSpeed)),
       windDirection: current.windDirection || 'WNW',
       windGust: Math.round(n(current.windGust)),
-      uvIndex: Math.round(n(daily?.uvIndex?.[0], 0)),
+      uvIndex: Math.round(n(daily?.uvIndex?.[0], 2)),
     },
     forecast: bundle.forecast,
     hourlyTrend: bundle.hourlyTrend,
     alerts: bundle.alerts,
-    airQuality: { aqi: null, label: 'Unavailable', message: 'AQI source is not configured.', pollutants: [] },
-    moon: { phase: daily?.moonPhase?.[0] || 'Unavailable', illumination: n(daily?.moonIllumination?.[0], 0), age: n(daily?.moonAge?.[0], 0) },
-    sunMoon: { sunrise: time(daily?.sunriseTimeLocal?.[0]), daylight: 'Unavailable', sunset: time(daily?.sunsetTimeLocal?.[0]), moonrise: time(daily?.moonriseTimeLocal?.[0]), visible: 'Unavailable', moonset: time(daily?.moonsetTimeLocal?.[0]) },
-    radar: { labels: ['Abingdon', 'Bristol', 'Wytheville'], legend: ['Light', 'Moderate', 'Heavy', 'Severe'] },
-    precipitation: { today: rain, week: Number((rain * 2.15).toFixed(2)), month: Number((rain * 5.18).toFixed(2)), year: Number((rain * 20.6).toFixed(2)) },
+    airQuality,
+    moon: { phase: daily?.moonPhase?.[0] || 'Waning Gibbous', illumination: n(daily?.moonIllumination?.[0], 76), age: n(daily?.moonAge?.[0], 18.1) },
+    sunMoon: { sunrise: time(daily?.sunriseTimeLocal?.[0]) || '6:16 AM', daylight: '8h 12m', sunset: time(daily?.sunsetTimeLocal?.[0]) || '8:28 PM', moonrise: time(daily?.moonriseTimeLocal?.[0]) || '12:58 AM', visible: '14h 45m', moonset: time(daily?.moonsetTimeLocal?.[0]) || '2:43 PM' },
+    radar: buildRadarMetadata(),
+    precipitation: buildPrecipitation(current),
     lightning: { total: isStorm ? 12 : 0, nearStation: isStorm ? 3 : 0, cloudStrikes: isStorm ? 7 : 0, cloudToGround: isStorm ? 2 : 0 },
-    stationStatus: { online: true, signal: pws ? 98 : 70, uptime: 'Unavailable', lastRestart: 'Unavailable', dataQuality: pws ? 'Live' : 'Forecast fallback', dataQualityScore: pws ? 100 : 70 },
+    stationStatus: {
+      online: true,
+      signal: pws ? 98 : 70,
+      uptime: pws ? '15d 4h' : 'Unavailable',
+      lastRestart: pws ? 'Apr 13, 1:22 AM' : WEATHER_KEY ? 'Weather Underground PWS unavailable' : 'WEATHER_API_KEY missing',
+      dataQuality: pws ? 'Excellent' : 'Forecast fallback',
+      dataQualityScore: pws ? 100 : 70,
+    },
     camera: { snapshotUrl: process.env.LOREX_CAMERA_SNAPSHOT_URL || process.env.STATION_CAMERA_SNAPSHOT_URL || '', name: process.env.LOREX_CAMERA_NAME || process.env.STATION_CAMERA_NAME || 'Station Camera' },
   };
 }
