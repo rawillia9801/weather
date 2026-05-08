@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { BrowserRouter, Navigate, NavLink, Route, Routes, useNavigate } from 'react-router-dom';
-import { AlertTriangle, Camera, CloudLightning, Copy, Download, Mail, MapPin, MessageSquare, Plus, RefreshCw, Save, Send, Trash2 } from 'lucide-react';
+import { AlertTriangle, Camera, CloudLightning, Copy, Download, LockKeyhole, Mail, MapPin, MessageSquare, Plus, RefreshCw, Save, Send, Trash2 } from 'lucide-react';
 import { fetchWeatherStationData } from './data/weatherStationApi';
 import { apiGet, apiSend, type AppConfig, type Contact, type DailyBriefPreview } from './data/appApi';
 import type { WeatherCondition, WeatherStationData } from './types/weather';
@@ -30,6 +30,9 @@ const emptyContact: Contact = {
   is_primary: false,
   notes: '',
 };
+
+const controlsPassword = import.meta.env.VITE_CONTROLS_PASSWORD || '1234';
+const controlsSessionKey = 'staley-controls-unlocked';
 
 function useStationData() {
   const [data, setData] = useState<WeatherStationData | null>(null);
@@ -128,16 +131,67 @@ function AppShell() {
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardPage data={data} condition={activeCondition} />} />
-          <Route path="/history" element={<HistoryPage data={data} />} />
-          <Route path="/alarms" element={<AlarmsPage data={data} config={config} />} />
-          <Route path="/reports" element={<ReportsPage data={data} config={config} reloadConfig={reload} />} />
-          <Route path="/maps" element={<MapsPage data={data} config={config} />} />
-          <Route path="/cameras" element={<CamerasPage data={data} config={config} />} />
-          <Route path="/settings" element={<SettingsPage data={data} config={config} reload={reload} />} />
+          <Route path="/history" element={<ControlsGate><HistoryPage data={data} /></ControlsGate>} />
+          <Route path="/alarms" element={<ControlsGate><AlarmsPage data={data} config={config} /></ControlsGate>} />
+          <Route path="/reports" element={<ControlsGate><ReportsPage data={data} config={config} reloadConfig={reload} /></ControlsGate>} />
+          <Route path="/maps" element={<ControlsGate><MapsPage data={data} config={config} /></ControlsGate>} />
+          <Route path="/cameras" element={<ControlsGate><CamerasPage data={data} config={config} /></ControlsGate>} />
+          <Route path="/settings" element={<ControlsGate><SettingsPage data={data} config={config} reload={reload} /></ControlsGate>} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </main>
     </div>
+  );
+}
+
+function ControlsGate({ children }: { children: React.ReactNode }) {
+  const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem(controlsSessionKey) === 'true');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  function unlock(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (password === controlsPassword) {
+      sessionStorage.setItem(controlsSessionKey, 'true');
+      setUnlocked(true);
+      setError('');
+      return;
+    }
+    setError('Incorrect password');
+  }
+
+  if (unlocked) return <>{children}</>;
+
+  return (
+    <section className="control-lock-screen">
+      <GlassCard className="control-lock-card">
+        <div className="control-lock-icon">
+          <LockKeyhole className="h-8 w-8" />
+        </div>
+        <div>
+          <div className="panel-kicker">Protected Controls</div>
+          <h2>Enter Controls Password</h2>
+          <p>Dashboard viewing is public. Control tabs require a simple passcode.</p>
+          <form onSubmit={unlock} className="control-lock-form">
+            <label htmlFor="controls-password">Password</label>
+            <input
+              id="controls-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              type="password"
+              inputMode="numeric"
+              autoComplete="current-password"
+              autoFocus
+            />
+            {error && <span role="alert">{error}</span>}
+            <button type="submit">
+              <LockKeyhole className="h-4 w-4" />
+              Unlock Controls
+            </button>
+          </form>
+        </div>
+      </GlassCard>
+    </section>
   );
 }
 

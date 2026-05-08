@@ -955,6 +955,17 @@
   .loading-screen p { max-width: 620px; color: rgba(255,255,255,.75); }
   .error-screen { background: radial-gradient(circle at 50% 0%, rgba(245,158,11,.22), transparent 24%), #020812; }
   .retry-button { display: inline-flex; align-items: center; gap: 8px; margin-top: 16px; border: 1px solid rgba(34,211,238,.45); border-radius: 10px; background: rgba(3,16,28,.78); padding: 10px 14px; color: #67e8f9; font-weight: 800; }
+  .control-lock-screen { display: grid; min-height: calc(100vh - 120px); place-items: center; padding: 18px; }
+  .control-lock-card { display: grid; grid-template-columns: auto minmax(0, 420px); gap: 18px; align-items: start; max-width: 620px; width: 100%; padding: 22px; }
+  .control-lock-icon { display: grid; width: 58px; height: 58px; place-items: center; border: 1px solid rgba(34,211,238,.42); border-radius: 16px; color: #67e8f9; background: rgba(2,8,18,.62); box-shadow: 0 0 22px rgba(34,211,238,.2); }
+  .control-lock-card h2 { margin-top: 8px; color: #fff; font-size: clamp(1.45rem, 2vw, 2.25rem); font-weight: 950; line-height: 1; }
+  .control-lock-card p { margin-top: 6px; color: rgba(255,255,255,.7); font-size: .86rem; }
+  .control-lock-form { display: grid; gap: 8px; margin-top: 16px; }
+  .control-lock-form label { color: #67e8f9; font-size: .68rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+  .control-lock-form input { height: 42px; border: 1px solid rgba(34,211,238,.34); border-radius: 10px; background: rgba(2,8,18,.78); padding: 0 12px; color: #fff; outline: none; }
+  .control-lock-form input:focus { border-color: #67e8f9; box-shadow: 0 0 18px rgba(34,211,238,.2); }
+  .control-lock-form span { color: #fb7185; font-size: .76rem; font-weight: 800; }
+  .control-lock-form button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; border: 1px solid rgba(34,211,238,.45); border-radius: 10px; background: rgba(3,16,28,.78); color: #67e8f9; font-size: .76rem; font-weight: 900; text-transform: uppercase; }
 }
 
 @keyframes livePulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(.72); opacity: .62; } }
