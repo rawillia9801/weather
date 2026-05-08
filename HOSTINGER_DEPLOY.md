@@ -47,8 +47,11 @@ If `/api/health` or `/api/weather` returns `404`, the frontend may load but live
 - Start command: `npm start`
 - App entry file: `server/index.mjs`
 - Public/output directory if requested: `dist`
+- Framework preset: `Express.js` or `Other`, not `Vite`
 
 `npm start` runs `server/ensure-dist.mjs` first. If `dist/index.html` is missing, it builds the frontend before starting the server.
+
+Important: Hostinger treats the `Vite` preset as a front-end-only app. Front-end-only apps do not run a persistent server process, so `/api/weather` will be `404` even when the React dashboard deploys correctly. This repository includes `main: server/index.mjs` and `start: node server/index.mjs` so Hostinger can run it as an Express app.
 
 ## Required environment variables
 
