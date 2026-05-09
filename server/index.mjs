@@ -256,6 +256,7 @@ async function loadPublicHistoryFallback(reason = 'Weather Underground PWS histo
   url.searchParams.set('latitude', String(cfg.latitude));
   url.searchParams.set('longitude', String(cfg.longitude));
   url.searchParams.set('daily', 'temperature_2m_max,temperature_2m_min,temperature_2m_mean,precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max');
+  url.searchParams.set('hourly', 'relative_humidity_2m,pressure_msl');
   url.searchParams.set('temperature_unit', 'fahrenheit');
   url.searchParams.set('wind_speed_unit', 'mph');
   url.searchParams.set('precipitation_unit', 'inch');
@@ -264,28 +265,38 @@ async function loadPublicHistoryFallback(reason = 'Weather Underground PWS histo
   url.searchParams.set('forecast_days', '1');
   const payload = await getJson(url);
   const daily = payload?.daily || {};
+  const hourly = payload?.hourly || {};
   const allTimes = daily.time || [];
   const times = allTimes.slice(-7);
   const summaries = times.map((date, index) => {
     const sourceIndex = allTimes.length - times.length + index;
+    const hourIndexes = (hourly.time || []).reduce((matches, stamp, hourIndex) => {
+      if (String(stamp).startsWith(date)) matches.push(hourIndex);
+      return matches;
+    }, []);
+    const humidityValues = hourIndexes.map((hourIndex) => optionalNumber(hourly.relative_humidity_2m?.[hourIndex])).filter((value) => value !== null);
+    const pressureValues = hourIndexes
+      .map((hourIndex) => optionalNumber(hourly.pressure_msl?.[hourIndex]))
+      .filter((value) => value !== null)
+      .map((value) => Number((value / 33.8639).toFixed(2)));
     return {
       date,
       stationId: cfg.stationId,
       obsTimeLocal: `${date} 23:59:59`,
       obsTimeUtc: new Date(`${date}T23:59:59`).toISOString(),
-      humidityAvg: null,
-      humidityHigh: null,
-      humidityLow: null,
+      humidityAvg: humidityValues.length ? Math.round(humidityValues.reduce((sum, value) => sum + value, 0) / humidityValues.length) : null,
+      humidityHigh: humidityValues.length ? Math.max(...humidityValues) : null,
+      humidityLow: humidityValues.length ? Math.min(...humidityValues) : null,
       uvHigh: null,
       windDirectionAvg: null,
       tempHigh: optionalNumber(daily.temperature_2m_max?.[sourceIndex]),
       tempLow: optionalNumber(daily.temperature_2m_min?.[sourceIndex]),
       tempAvg: optionalNumber(daily.temperature_2m_mean?.[sourceIndex]),
       windSpeedHigh: optionalNumber(daily.wind_speed_10m_max?.[sourceIndex]),
-      windSpeedAvg: null,
+      windSpeedAvg: optionalNumber(daily.wind_speed_10m_max?.[sourceIndex]),
       windGustHigh: optionalNumber(daily.wind_gusts_10m_max?.[sourceIndex]),
-      pressureMax: null,
-      pressureMin: null,
+      pressureMax: pressureValues.length ? Math.max(...pressureValues) : null,
+      pressureMin: pressureValues.length ? Math.min(...pressureValues) : null,
       precipTotal: optionalNumber(daily.precipitation_sum?.[sourceIndex]),
     };
   });
