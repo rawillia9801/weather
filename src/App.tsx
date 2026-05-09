@@ -34,6 +34,9 @@ const emptyContact: Contact = {
 
 const controlsPassword = import.meta.env.VITE_CONTROLS_PASSWORD || '1234';
 const controlsSessionKey = 'staley-controls-unlocked';
+const historyLatitude = Number(import.meta.env.VITE_LATITUDE || 36.8348);
+const historyLongitude = Number(import.meta.env.VITE_LONGITUDE || -81.5148);
+const historyTimeZone = import.meta.env.VITE_REPORT_TIME_ZONE || 'America/New_York';
 
 type PwsDailySummary = {
   date: string;
@@ -59,6 +62,7 @@ type PwsHistoryResponse = {
   stationId: string;
   generatedAt: string;
   summaries: PwsDailySummary[];
+  fallbackReason?: string;
 };
 
 function useStationData() {
@@ -287,7 +291,13 @@ function HistoryPage({ data }: { data: WeatherStationData }) {
       setError('');
       setHistory(await apiGet<PwsHistoryResponse>('/api/history'));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load Weather Underground PWS history');
+      const message = err instanceof Error ? err.message : 'Unable to load Weather Underground PWS history';
+      try {
+        setHistory(await fetchPublicHistoryFallback(data, message));
+        setError('');
+      } catch {
+        setError(message);
+      }
     } finally {
       setLoading(false);
     }
@@ -323,6 +333,7 @@ function HistoryPage({ data }: { data: WeatherStationData }) {
         <div>
           <strong>Weather Underground PWS Daily Summary</strong>
           <span>{history ? `${history.source} • ${formatDateTime(history.generatedAt)}` : 'Loading 7-day station archive...'}</span>
+          {history?.fallbackReason && <span className="history-fallback-note">PWS history route unavailable. Showing public archive fallback.</span>}
         </div>
         <button type="button" onClick={loadHistory} disabled={loading}>
           <RefreshCw className="h-4 w-4" />
@@ -347,6 +358,60 @@ function HistoryPage({ data }: { data: WeatherStationData }) {
       )}
     </section>
   );
+}
+
+async function fetchPublicHistoryFallback(data: WeatherStationData, fallbackReason: string): Promise<PwsHistoryResponse> {
+  const url = new URL('https://api.open-meteo.com/v1/forecast');
+  url.searchParams.set('latitude', String(historyLatitude));
+  url.searchParams.set('longitude', String(historyLongitude));
+  url.searchParams.set('daily', 'temperature_2m_max,temperature_2m_min,temperature_2m_mean,precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max');
+  url.searchParams.set('temperature_unit', 'fahrenheit');
+  url.searchParams.set('wind_speed_unit', 'mph');
+  url.searchParams.set('precipitation_unit', 'inch');
+  url.searchParams.set('timezone', historyTimeZone);
+  url.searchParams.set('past_days', '7');
+  url.searchParams.set('forecast_days', '1');
+
+  const response = await fetch(url, { headers: { Accept: 'application/json' } });
+  if (!response.ok) throw new Error(`Public history fallback failed: ${response.status} ${response.statusText}`);
+  const payload = await response.json();
+  const daily = payload.daily || {};
+  const times: string[] = (daily.time || []).slice(-7);
+  const summaries = times.map((date, index) => {
+    const sourceIndex = (daily.time || []).length - times.length + index;
+    return {
+      date,
+      stationId: data.station.id,
+      obsTimeLocal: `${date} 23:59:59`,
+      obsTimeUtc: new Date(`${date}T23:59:59`).toISOString(),
+      humidityAvg: index === times.length - 1 ? data.current.humidity : null,
+      humidityHigh: index === times.length - 1 ? data.current.humidity : null,
+      humidityLow: index === times.length - 1 ? data.current.humidity : null,
+      uvHigh: null,
+      tempHigh: asNullableNumber(daily.temperature_2m_max?.[sourceIndex]),
+      tempLow: asNullableNumber(daily.temperature_2m_min?.[sourceIndex]),
+      tempAvg: asNullableNumber(daily.temperature_2m_mean?.[sourceIndex]),
+      windSpeedAvg: null,
+      windSpeedHigh: asNullableNumber(daily.wind_speed_10m_max?.[sourceIndex]),
+      windGustHigh: asNullableNumber(daily.wind_gusts_10m_max?.[sourceIndex]),
+      pressureMax: index === times.length - 1 ? data.current.pressure : null,
+      pressureMin: index === times.length - 1 ? data.current.pressure : null,
+      precipTotal: asNullableNumber(daily.precipitation_sum?.[sourceIndex]),
+    };
+  });
+
+  return {
+    source: 'Open-Meteo public archive fallback',
+    stationId: data.station.id,
+    generatedAt: new Date().toISOString(),
+    fallbackReason,
+    summaries,
+  };
+}
+
+function asNullableNumber(value: unknown) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 function numericValues(rows: PwsDailySummary[], key: keyof PwsDailySummary) {

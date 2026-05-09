@@ -809,6 +809,9 @@
     color: rgba(255,255,255,.58);
     font-size: .72rem;
   }
+  .history-toolbar .history-fallback-note {
+    color: #fbbf24;
+  }
   .history-toolbar button {
     display: inline-flex;
     align-items: center;
