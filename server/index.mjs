@@ -14,7 +14,7 @@ dotenv.config({ path: path.join(root, '.env.local'), override: false });
 dotenv.config({ path: path.join(root, '.env'), override: false });
 
 const cfg = {
-  weatherKey: process.env.WEATHER_API_KEY,
+  weatherKey: weatherKeyValue(),
   stationId: process.env.STATION_ID || 'KVAMARIO42',
   latitude: Number(process.env.LATITUDE || 36.8348),
   longitude: Number(process.env.LONGITUDE || -81.5148),
@@ -44,6 +44,10 @@ const cfg = {
 
 function envValue(name) {
   return process.env[name]?.trim();
+}
+
+function weatherKeyValue() {
+  return (envValue('WEATHER_API_KEY') || envValue('WEATHER_UNDERGROUND_API_KEY') || envValue('VITE_WEATHER_API_KEY') || '').toLowerCase();
 }
 
 function supabaseProjectUrl() {

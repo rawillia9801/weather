@@ -2,12 +2,16 @@ const STATION_ID = envValue('STATION_ID') || envValue('WEATHER_UNDERGROUND_STATI
 const LATITUDE = Number(envValue('LATITUDE') || envValue('STATION_LAT') || 36.8348);
 const LONGITUDE = Number(envValue('LONGITUDE') || envValue('STATION_LON') || -81.5148);
 const TIME_ZONE = envValue('REPORT_TIME_ZONE') || envValue('TZ') || 'America/New_York';
-const WEATHER_KEY = envValue('WEATHER_API_KEY') || envValue('WEATHER_UNDERGROUND_API_KEY') || envValue('VITE_WEATHER_API_KEY');
+const WEATHER_KEY = weatherKeyValue();
 const RADAR_CONTEXT_URL = envValue('RADAR_CONTEXT_URL') || '';
 const RADAR_PROVIDER_NAME = envValue('RADAR_PROVIDER_NAME') || 'Radar provider';
 
 function envValue(name) {
   return process.env[name]?.trim();
+}
+
+function weatherKeyValue() {
+  return (envValue('WEATHER_API_KEY') || envValue('WEATHER_UNDERGROUND_API_KEY') || envValue('VITE_WEATHER_API_KEY') || '').toLowerCase();
 }
 
 const conditionMap = [

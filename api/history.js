@@ -1,8 +1,12 @@
 const STATION_ID = envValue('STATION_ID') || envValue('WEATHER_UNDERGROUND_STATION_ID') || 'KVAMARIO42';
-const WEATHER_KEY = envValue('WEATHER_API_KEY') || envValue('WEATHER_UNDERGROUND_API_KEY') || envValue('VITE_WEATHER_API_KEY');
+const WEATHER_KEY = weatherKeyValue();
 
 function envValue(name) {
   return process.env[name]?.trim();
+}
+
+function weatherKeyValue() {
+  return (envValue('WEATHER_API_KEY') || envValue('WEATHER_UNDERGROUND_API_KEY') || envValue('VITE_WEATHER_API_KEY') || '').toLowerCase();
 }
 
 function optionalNumber(value) {

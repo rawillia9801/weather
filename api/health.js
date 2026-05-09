@@ -4,7 +4,7 @@ export default function handler(_req, res) {
   const serviceKey = envValue('SUPABASE_SERVICE_ROLE_KEY') || envValue('SUPABASE_SERVICE_KEY') || envValue('SUPABASE_SECRET_KEY') || envValue('SUPABASE_SERVICE_ROLE');
   const anonKey = envValue('NEXT_PUBLIC_SUPABASE_ANON_KEY') || envValue('VITE_SUPABASE_ANON_KEY') || envValue('SUPABASE_ANON_KEY');
   const supabaseUrl = supabaseProjectUrl();
-  const weatherKey = envValue('WEATHER_API_KEY') || envValue('WEATHER_UNDERGROUND_API_KEY') || envValue('VITE_WEATHER_API_KEY');
+  const weatherKey = weatherKeyValue();
   res.status(200).json({
     ok: true,
     stationId: process.env.STATION_ID || process.env.WEATHER_UNDERGROUND_STATION_ID || 'KVAMARIO42',
@@ -28,6 +28,10 @@ export default function handler(_req, res) {
 
 function envValue(name) {
   return process.env[name]?.trim();
+}
+
+function weatherKeyValue() {
+  return (envValue('WEATHER_API_KEY') || envValue('WEATHER_UNDERGROUND_API_KEY') || envValue('VITE_WEATHER_API_KEY') || '').toLowerCase();
 }
 
 function supabaseProjectUrl() {
