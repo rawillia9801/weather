@@ -42,6 +42,10 @@ const cfg = {
   ].filter(Boolean),
 };
 
+let weatherCache = null;
+let weatherCacheAt = 0;
+const WEATHER_CACHE_MS = 120000;
+
 function envValue(name) {
   return process.env[name]?.trim();
 }
@@ -160,6 +164,13 @@ async function getJson(url) {
     throw new Error(`${response.status} ${response.statusText}: ${body.slice(0, 180)}`);
   }
   return response.json();
+}
+
+function cleanProviderReason(error) {
+  const message = error instanceof Error ? error.message : String(error || 'Unknown provider error');
+  if (message.includes('Access Denied')) return 'Weather Underground API offline';
+  if (message.includes('Invalid apiKey')) return 'Weather Underground API key rejected';
+  return message.replace(/\s+/g, ' ').slice(0, 160);
 }
 
 async function getNationalWeatherServiceJson(url) {
@@ -436,7 +447,7 @@ function buildRadarMetadata() {
   };
 }
 
-function buildStationData({ current, forecast, hourlyTrend, alerts, daily, airQuality = fallbackAirQuality() }) {
+function buildStationData({ current, forecast, hourlyTrend, alerts, daily, airQuality = fallbackAirQuality(), stationStatus }) {
   const now = new Date();
   const firstForecast = forecast[0] || {};
   const currentCondition = classifyCondition(current.conditionText || firstForecast.condition);
@@ -490,7 +501,7 @@ function buildStationData({ current, forecast, hourlyTrend, alerts, daily, airQu
       cloudStrikes: currentCondition === 'Thunderstorms' ? 7 : 0,
       cloudToGround: currentCondition === 'Thunderstorms' ? 2 : 0,
     },
-    stationStatus: {
+    stationStatus: stationStatus || {
       online: true,
       signal: 98,
       uptime: '15d 4h',
@@ -828,11 +839,18 @@ async function loadWeatherUndergroundStation() {
   }
 
   const geocode = `${cfg.latitude},${cfg.longitude}`;
-  const currentPayload = await weatherUnderground('/v2/pws/observations/current', {
-    stationId: cfg.stationId,
-    format: 'json',
-    units: 'e',
-  });
+  let currentPayload;
+  let pwsError = '';
+
+  try {
+    currentPayload = await weatherUnderground('/v2/pws/observations/current', {
+      stationId: cfg.stationId,
+      format: 'json',
+      units: 'e',
+    });
+  } catch (error) {
+    pwsError = cleanProviderReason(error);
+  }
 
   let dailyPayload;
   let hourlyPayload;
@@ -872,14 +890,38 @@ async function loadWeatherUndergroundStation() {
   }
 
   const airQuality = await loadAirQuality();
+  const current = currentPayload
+    ? readPwsCurrent(currentPayload)
+    : {
+        temperature: hourlyTrend?.[0]?.temp ?? forecast?.[0]?.high ?? 0,
+        feelsLike: hourlyTrend?.[0]?.feelsLike ?? hourlyTrend?.[0]?.temp ?? forecast?.[0]?.high ?? 0,
+        humidity: 0,
+        pressure: 29.92,
+        windSpeed: 0,
+        windGust: 0,
+        windDirection: 'Unavailable',
+        conditionText: forecast?.[0]?.condition || 'Unknown',
+        precipToday: 0,
+        precipRate: 0,
+      };
 
   return buildStationData({
-    current: readPwsCurrent(currentPayload),
+    current,
     forecast,
     hourlyTrend,
     alerts,
     daily: dailyPayload,
     airQuality,
+    stationStatus: currentPayload
+      ? undefined
+      : {
+          online: false,
+          signal: 70,
+          uptime: 'Unavailable',
+          lastRestart: pwsError || 'Weather Underground PWS unavailable',
+          dataQuality: 'Forecast fallback',
+          dataQualityScore: 70,
+        },
   });
 }
 
@@ -907,7 +949,13 @@ app.get('/api/health', (_req, res) => {
 
 app.get('/api/weather', async (_req, res) => {
   try {
+    if (weatherCache && Date.now() - weatherCacheAt < WEATHER_CACHE_MS) {
+      res.set('Cache-Control', 'private, max-age=120');
+      return res.json(weatherCache);
+    }
     const data = await loadWeatherUndergroundStation();
+    weatherCache = data;
+    weatherCacheAt = Date.now();
     res.set('Cache-Control', 'private, max-age=120');
     res.json(data);
   } catch (error) {

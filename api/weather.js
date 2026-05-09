@@ -5,6 +5,9 @@ const TIME_ZONE = envValue('REPORT_TIME_ZONE') || envValue('TZ') || 'America/New
 const WEATHER_KEY = weatherKeyValue();
 const RADAR_CONTEXT_URL = envValue('RADAR_CONTEXT_URL') || '';
 const RADAR_PROVIDER_NAME = envValue('RADAR_PROVIDER_NAME') || 'Radar provider';
+let weatherCache = null;
+let weatherCacheAt = 0;
+const WEATHER_CACHE_MS = 120000;
 
 function envValue(name) {
   return process.env[name]?.trim();
@@ -366,8 +369,16 @@ async function buildWeather() {
 
 export default async function handler(req, res) {
   try {
+    if (weatherCache && Date.now() - weatherCacheAt < WEATHER_CACHE_MS) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300');
+      return res.status(200).json(weatherCache);
+    }
     res.setHeader('Access-Control-Allow-Origin', '*');
-    return res.status(200).json(await buildWeather());
+    res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300');
+    weatherCache = await buildWeather();
+    weatherCacheAt = Date.now();
+    return res.status(200).json(weatherCache);
   } catch (error) {
     return res.status(500).json({ error: error instanceof Error ? error.message : 'Unable to load station data' });
   }
