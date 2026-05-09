@@ -333,7 +333,7 @@ async function buildWeather() {
     precipitation: buildPrecipitation(current),
     lightning: { total: isStorm ? 12 : 0, nearStation: isStorm ? 3 : 0, cloudStrikes: isStorm ? 7 : 0, cloudToGround: isStorm ? 2 : 0 },
     stationStatus: {
-      online: true,
+      online: Boolean(pws),
       signal: pws ? 98 : 70,
       uptime: pws ? '15d 4h' : 'Unavailable',
       lastRestart: pws ? 'Apr 13, 1:22 AM' : WEATHER_KEY ? 'Weather Underground PWS unavailable' : 'WEATHER_API_KEY missing',

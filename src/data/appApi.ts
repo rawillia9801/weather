@@ -34,9 +34,6 @@ export async function apiSend<T>(path: string, method: string, body?: unknown): 
     if (!response.ok) throw new Error(payload.error || 'Request failed');
     return payload;
   } catch (error) {
-    if (path === '/api/contacts' && method === 'POST') return saveSupabaseContact(body as Contact) as Promise<T>;
-    const contactMatch = path.match(/^\/api\/contacts\/([^/]+)$/);
-    if (contactMatch && method === 'DELETE') return deleteSupabaseContact(contactMatch[1]) as Promise<T>;
     throw error;
   }
 }
@@ -150,27 +147,6 @@ async function getSupabaseAppConfig(): Promise<AppConfig> {
     daily_brief_send_logs: logs,
     notification_events: events,
   };
-}
-
-async function saveSupabaseContact(contact: Contact) {
-  const clean = {
-    display_name: String(contact.display_name || '').trim(),
-    email: contact.email ? String(contact.email).trim() : null,
-    phone_e164: contact.phone_e164 ? String(contact.phone_e164).trim() : null,
-    email_enabled: Boolean(contact.email_enabled),
-    sms_enabled: Boolean(contact.sms_enabled),
-    is_primary: Boolean(contact.is_primary),
-    notes: contact.notes || null,
-  };
-  const { data, error } = await getSupabase().from('contacts').insert(clean).select('*').single();
-  if (error) throw new Error(error.message);
-  return data;
-}
-
-async function deleteSupabaseContact(id: string) {
-  const { error } = await getSupabase().from('contacts').delete().eq('id', id);
-  if (error) throw new Error(error.message);
-  return { ok: true };
 }
 
 function first<T>(rows: T[], fallback: T) {
