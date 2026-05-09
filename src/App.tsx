@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { BrowserRouter, Navigate, NavLink, Route, Routes, useNavigate } from 'react-router-dom';
 import { AlertTriangle, Camera, CloudLightning, Copy, Download, LockKeyhole, Mail, MapPin, MessageSquare, Plus, RefreshCw, Save, Send, Trash2 } from 'lucide-react';
+import { Bar, CartesianGrid, ComposedChart, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { fetchWeatherStationData } from './data/weatherStationApi';
 import { apiGet, apiSend, type AppConfig, type Contact, type DailyBriefPreview } from './data/appApi';
 import type { WeatherCondition, WeatherStationData } from './types/weather';
@@ -33,6 +34,32 @@ const emptyContact: Contact = {
 
 const controlsPassword = import.meta.env.VITE_CONTROLS_PASSWORD || '1234';
 const controlsSessionKey = 'staley-controls-unlocked';
+
+type PwsDailySummary = {
+  date: string;
+  stationId: string;
+  obsTimeLocal: string;
+  humidityAvg: number | null;
+  humidityHigh: number | null;
+  humidityLow: number | null;
+  uvHigh: number | null;
+  tempHigh: number | null;
+  tempLow: number | null;
+  tempAvg: number | null;
+  windSpeedAvg: number | null;
+  windSpeedHigh: number | null;
+  windGustHigh: number | null;
+  pressureMax: number | null;
+  pressureMin: number | null;
+  precipTotal: number | null;
+};
+
+type PwsHistoryResponse = {
+  source: string;
+  stationId: string;
+  generatedAt: string;
+  summaries: PwsDailySummary[];
+};
 
 function useStationData() {
   const [data, setData] = useState<WeatherStationData | null>(null);
@@ -250,24 +277,205 @@ function Unavailable({ title, children }: { title: string; children: React.React
 }
 
 function HistoryPage({ data }: { data: WeatherStationData }) {
+  const [history, setHistory] = useState<PwsHistoryResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  async function loadHistory() {
+    try {
+      setLoading(true);
+      setError('');
+      setHistory(await apiGet<PwsHistoryResponse>('/api/history'));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to load Weather Underground PWS history');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadHistory();
+  }, []);
+
+  const summaries = history?.summaries || [];
+  const summaryCards = summaries.length
+    ? [
+        ['Highest temperature', formatNumber(maxValue(summaries, 'tempHigh'), 'F')],
+        ['Lowest temperature', formatNumber(minValue(summaries, 'tempLow'), 'F')],
+        ['Peak wind gust', formatNumber(maxValue(summaries, 'windGustHigh'), 'mph')],
+        ['7-day rainfall', formatNumber(sumValue(summaries, 'precipTotal'), 'in', 2)],
+        ['Highest humidity', formatNumber(maxValue(summaries, 'humidityHigh'), '%')],
+        ['Lowest pressure', formatNumber(minValue(summaries, 'pressureMin'), 'inHg', 2)],
+      ]
+    : [
+        ['Highest temperature', `${Math.max(...data.hourlyTrend.map((p) => p.temp))}F`],
+        ['Lowest temperature', `${Math.min(...data.hourlyTrend.map((p) => p.temp))}F`],
+        ['Peak wind gust', `${data.current.windGust} mph`],
+        ['Rainfall today', `${data.precipitation.today.toFixed(2)} in`],
+        ['Current humidity', `${data.current.humidity}%`],
+        ['Current pressure', `${data.current.pressure} inHg`],
+      ];
+
   return (
     <section className="page-view">
       <PageHeader title="Station History" subtitle={`Historical observations from Staley Street Weather - ${data.station.id}`} />
-      <div className="page-grid three">
-        {[
-          ['Highest temperature', `${Math.max(...data.hourlyTrend.map((p) => p.temp))}F`],
-          ['Lowest temperature', `${Math.min(...data.hourlyTrend.map((p) => p.temp))}F`],
-          ['Peak wind gust', `${data.current.windGust} mph`],
-          ['Total rainfall today', `${data.precipitation.today.toFixed(2)} in`],
-          ['Highest humidity', `${data.current.humidity}%`],
-          ['Lowest pressure', `${data.current.pressure} inHg`],
-        ].map(([label, value]) => <StatCard key={label} label={label} value={value} />)}
+      <div className="history-toolbar">
+        <div>
+          <strong>Weather Underground PWS Daily Summary</strong>
+          <span>{history ? `${history.source} • ${formatDateTime(history.generatedAt)}` : 'Loading 7-day station archive...'}</span>
+        </div>
+        <button type="button" onClick={loadHistory} disabled={loading}>
+          <RefreshCw className="h-4 w-4" />
+          {loading ? 'Refreshing' : 'Refresh History'}
+        </button>
       </div>
-      <TemperatureTrend data={data.hourlyTrend} />
-      <Unavailable title="Historical archive endpoint not connected">
-        Live hourly trend is shown above. Configure a station history table or Weather Underground history endpoint to unlock range filters, exports, and the observation table.
-      </Unavailable>
+      <div className="page-grid three">
+        {summaryCards.map(([label, value]) => <StatCard key={label} label={label} value={value} />)}
+      </div>
+      {summaries.length > 0 ? (
+        <>
+          <HistoryCharts summaries={summaries} />
+          <HistoryTable summaries={summaries} />
+        </>
+      ) : (
+        <>
+          <TemperatureTrend data={data.hourlyTrend} />
+          <Unavailable title={error ? 'Weather Underground history unavailable' : 'Loading historical archive'}>
+            {error || 'The 7-day Weather Underground PWS daily summary is loading. Live hourly trend is shown until the archive responds.'}
+          </Unavailable>
+        </>
+      )}
     </section>
+  );
+}
+
+function numericValues(rows: PwsDailySummary[], key: keyof PwsDailySummary) {
+  return rows.reduce<number[]>((values, row) => {
+    const value = row[key];
+    if (typeof value === 'number' && Number.isFinite(value)) values.push(value);
+    return values;
+  }, []);
+}
+
+function maxValue(rows: PwsDailySummary[], key: keyof PwsDailySummary) {
+  const values = numericValues(rows, key);
+  return values.length ? Math.max(...values) : null;
+}
+
+function minValue(rows: PwsDailySummary[], key: keyof PwsDailySummary) {
+  const values = numericValues(rows, key);
+  return values.length ? Math.min(...values) : null;
+}
+
+function sumValue(rows: PwsDailySummary[], key: keyof PwsDailySummary) {
+  const values = numericValues(rows, key);
+  return values.length ? values.reduce((total, value) => total + value, 0) : null;
+}
+
+function formatNumber(value: number | null, unit = '', digits = 0) {
+  if (value == null) return 'Unavailable';
+  if (unit === '%' || unit === 'F') return `${value.toFixed(digits)}${unit}`;
+  return `${value.toFixed(digits)} ${unit}`.trim();
+}
+
+function formatHistoryDate(value: string) {
+  if (!value) return 'Unavailable';
+  const date = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+function formatDateTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Updated time unavailable';
+  return date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+function HistoryCharts({ summaries }: { summaries: PwsDailySummary[] }) {
+  const chartData = summaries.map((summary) => ({
+    day: formatHistoryDate(summary.date).replace(',', ''),
+    high: summary.tempHigh,
+    low: summary.tempLow,
+    avg: summary.tempAvg,
+    rain: summary.precipTotal,
+    gust: summary.windGustHigh,
+    humidity: summary.humidityAvg,
+  }));
+
+  return (
+    <div className="history-chart-grid">
+      <GlassCard className="page-card history-chart-card">
+        <h3>7-Day Temperature</h3>
+        <ResponsiveContainer width="100%" height={210}>
+          <LineChart data={chartData} margin={{ top: 12, right: 12, bottom: 0, left: -18 }}>
+            <CartesianGrid stroke="rgba(148,163,184,.12)" vertical={false} />
+            <XAxis dataKey="day" stroke="rgba(226,232,240,.58)" fontSize={11} tickLine={false} axisLine={false} />
+            <YAxis stroke="rgba(226,232,240,.58)" fontSize={11} tickLine={false} axisLine={false} width={38} />
+            <Tooltip contentStyle={{ background: '#06111e', border: '1px solid rgba(34,211,238,.35)', borderRadius: 10, color: '#fff' }} />
+            <Line type="monotone" dataKey="high" stroke="#fb923c" strokeWidth={2.5} dot={{ r: 3 }} connectNulls />
+            <Line type="monotone" dataKey="avg" stroke="#22d3ee" strokeWidth={2} dot={false} connectNulls />
+            <Line type="monotone" dataKey="low" stroke="#60a5fa" strokeWidth={2.5} dot={{ r: 3 }} connectNulls />
+          </LineChart>
+        </ResponsiveContainer>
+      </GlassCard>
+      <GlassCard className="page-card history-chart-card">
+        <h3>Rain, Gusts & Humidity</h3>
+        <ResponsiveContainer width="100%" height={210}>
+          <ComposedChart data={chartData} margin={{ top: 12, right: 12, bottom: 0, left: -18 }}>
+            <CartesianGrid stroke="rgba(148,163,184,.12)" vertical={false} />
+            <XAxis dataKey="day" stroke="rgba(226,232,240,.58)" fontSize={11} tickLine={false} axisLine={false} />
+            <YAxis stroke="rgba(226,232,240,.58)" fontSize={11} tickLine={false} axisLine={false} width={38} />
+            <Tooltip contentStyle={{ background: '#06111e', border: '1px solid rgba(34,211,238,.35)', borderRadius: 10, color: '#fff' }} />
+            <Bar dataKey="rain" fill="#22d3ee" radius={[5, 5, 0, 0]} />
+            <Line type="monotone" dataKey="gust" stroke="#fbbf24" strokeWidth={2} connectNulls />
+            <Line type="monotone" dataKey="humidity" stroke="#4ade80" strokeWidth={2} connectNulls />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </GlassCard>
+    </div>
+  );
+}
+
+function HistoryTable({ summaries }: { summaries: PwsDailySummary[] }) {
+  return (
+    <GlassCard className="page-card history-table-card">
+      <div className="history-table-title">
+        <h3>Daily Observations</h3>
+        <span>{summaries.length} Weather Underground PWS summaries</span>
+      </div>
+      <div className="history-table-wrap">
+        <table className="history-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>High</th>
+              <th>Low</th>
+              <th>Avg</th>
+              <th>Humidity</th>
+              <th>Rain</th>
+              <th>Wind/Gust</th>
+              <th>Pressure</th>
+              <th>UV</th>
+            </tr>
+          </thead>
+          <tbody>
+            {summaries.map((summary) => (
+              <tr key={`${summary.stationId}-${summary.date}`}>
+                <td>{formatHistoryDate(summary.date)}</td>
+                <td>{formatNumber(summary.tempHigh, 'F')}</td>
+                <td>{formatNumber(summary.tempLow, 'F')}</td>
+                <td>{formatNumber(summary.tempAvg, 'F')}</td>
+                <td>{formatNumber(summary.humidityAvg, '%')}</td>
+                <td>{formatNumber(summary.precipTotal, 'in', 2)}</td>
+                <td>{formatNumber(summary.windSpeedAvg, 'mph')} / {formatNumber(summary.windGustHigh, 'mph')}</td>
+                <td>{formatNumber(summary.pressureMin, 'inHg', 2)} - {formatNumber(summary.pressureMax, 'inHg', 2)}</td>
+                <td>{formatNumber(summary.uvHigh)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </GlassCard>
   );
 }
 

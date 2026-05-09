@@ -93,6 +93,11 @@ function f(value, fallback = 0) {
   return Number.isFinite(number) ? number : fallback;
 }
 
+function optionalNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
 function compactTime(value) {
   if (!value) return '';
   const date = new Date(value);
@@ -128,6 +133,72 @@ async function weatherUnderground(pathname, params) {
     if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value));
   });
   return getJson(url);
+}
+
+function pwsUnitBucket(units = 'e') {
+  if (units === 'm') return 'metric';
+  if (units === 'h') return 'uk_hybrid';
+  return 'imperial';
+}
+
+function normalizePwsDailySummary(row, units = 'e') {
+  const bucket = row?.[pwsUnitBucket(units)] || row?.imperial || row?.metric || {};
+  const date = row?.obsTimeLocal?.slice(0, 10) || (row?.epoch ? new Date(row.epoch * 1000).toISOString().slice(0, 10) : '');
+  return {
+    date,
+    stationId: row?.stationID || cfg.stationId,
+    obsTimeLocal: row?.obsTimeLocal || '',
+    obsTimeUtc: row?.obsTimeUtc || '',
+    epoch: optionalNumber(row?.epoch),
+    latitude: optionalNumber(row?.lat),
+    longitude: optionalNumber(row?.lon),
+    humidityAvg: optionalNumber(row?.humidityAvg),
+    humidityHigh: optionalNumber(row?.humidityHigh),
+    humidityLow: optionalNumber(row?.humidityLow),
+    uvHigh: optionalNumber(row?.uvHigh),
+    solarRadiationHigh: optionalNumber(row?.solarRadiationHigh),
+    windDirectionAvg: optionalNumber(row?.winddirAvg),
+    tempHigh: optionalNumber(bucket.tempHigh),
+    tempLow: optionalNumber(bucket.tempLow),
+    tempAvg: optionalNumber(bucket.tempAvg),
+    windSpeedHigh: optionalNumber(bucket.windspeedHigh),
+    windSpeedLow: optionalNumber(bucket.windspeedLow),
+    windSpeedAvg: optionalNumber(bucket.windspeedAvg),
+    windGustHigh: optionalNumber(bucket.windgustHigh),
+    windGustLow: optionalNumber(bucket.windgustLow),
+    windGustAvg: optionalNumber(bucket.windgustAvg),
+    dewpointAvg: optionalNumber(bucket.dewptAvg),
+    heatIndexHigh: optionalNumber(bucket.heatindexHigh),
+    windChillLow: optionalNumber(bucket.windchillLow),
+    pressureMax: optionalNumber(bucket.pressureMax),
+    pressureMin: optionalNumber(bucket.pressureMin),
+    pressureTrend: optionalNumber(bucket.pressureTrend),
+    precipRate: optionalNumber(bucket.precipRate),
+    precipTotal: optionalNumber(bucket.precipTotal),
+  };
+}
+
+async function loadPwsSevenDayHistory() {
+  if (!cfg.weatherKey) {
+    throw new Error('WEATHER_API_KEY is required for Weather Underground PWS history.');
+  }
+  const units = 'e';
+  const payload = await weatherUnderground('/v2/pws/dailysummary/7day', {
+    stationId: cfg.stationId,
+    format: 'json',
+    units,
+    numericPrecision: 'decimal',
+  });
+  const summaries = (payload?.summaries || [])
+    .map((row) => normalizePwsDailySummary(row, units))
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  return {
+    source: 'Weather Underground PWS Daily Summary - 7 Day History',
+    stationId: cfg.stationId,
+    units,
+    generatedAt: new Date().toISOString(),
+    summaries,
+  };
 }
 
 function readPwsCurrent(payload) {
@@ -763,6 +834,19 @@ app.get('/api/weather', async (_req, res) => {
   } catch (error) {
     res.status(502).json({
       error: 'Unable to load live Weather Underground station data',
+      message: error instanceof Error ? error.message : 'Unknown provider error',
+    });
+  }
+});
+
+app.get('/api/history', async (_req, res) => {
+  try {
+    const data = await loadPwsSevenDayHistory();
+    res.set('Cache-Control', 'private, max-age=900');
+    res.json(data);
+  } catch (error) {
+    res.status(502).json({
+      error: 'Unable to load Weather Underground PWS 7-day history',
       message: error instanceof Error ? error.message : 'Unknown provider error',
     });
   }
