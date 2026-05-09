@@ -252,6 +252,52 @@ function fallbackAirQuality(message = 'AQI source is not configured.', source) {
   };
 }
 
+function windDirectionFromDegrees(value) {
+  const degrees = Number(value);
+  if (!Number.isFinite(degrees)) return 'Unavailable';
+  const labels = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+  return labels[Math.round(degrees / 22.5) % 16];
+}
+
+function conditionFromWeatherCode(code, isDay = true) {
+  const value = Number(code);
+  if ([0].includes(value)) return isDay ? 'Sunny' : 'Clear Night';
+  if ([1].includes(value)) return isDay ? 'Mostly Sunny' : 'Clear Night';
+  if ([2].includes(value)) return 'Partly Cloudy';
+  if ([3].includes(value)) return 'Cloudy';
+  if ([45, 48].includes(value)) return 'Fog';
+  if ([51, 53, 55, 56, 57, 80, 81, 82].includes(value)) return 'Showers';
+  if ([61, 63, 65, 66, 67].includes(value)) return 'Rain';
+  if ([71, 73, 75, 77, 85, 86].includes(value)) return 'Snow';
+  if ([95, 96, 99].includes(value)) return 'Thunderstorms';
+  return 'Unknown';
+}
+
+async function loadOpenMeteoCurrent() {
+  const url = new URL('https://api.open-meteo.com/v1/forecast');
+  url.searchParams.set('latitude', String(LATITUDE));
+  url.searchParams.set('longitude', String(LONGITUDE));
+  url.searchParams.set('current', 'temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,pressure_msl,wind_speed_10m,wind_direction_10m,wind_gusts_10m,is_day');
+  url.searchParams.set('daily', 'precipitation_sum');
+  url.searchParams.set('temperature_unit', 'fahrenheit');
+  url.searchParams.set('wind_speed_unit', 'mph');
+  url.searchParams.set('precipitation_unit', 'inch');
+  url.searchParams.set('timezone', TIME_ZONE);
+  const payload = await getJson(url);
+  const current = payload?.current || {};
+  return {
+    temperature: n(current.temperature_2m),
+    feelsLike: n(current.apparent_temperature, current.temperature_2m),
+    humidity: n(current.relative_humidity_2m),
+    pressure: Number((n(current.pressure_msl, 1013.25) / 33.8639).toFixed(2)),
+    windSpeed: n(current.wind_speed_10m),
+    windGust: n(current.wind_gusts_10m),
+    windDirection: windDirectionFromDegrees(current.wind_direction_10m),
+    conditionText: conditionFromWeatherCode(current.weather_code, current.is_day === 1),
+    precipToday: n(payload?.daily?.precipitation_sum?.[0], n(current.precipitation, 0)),
+  };
+}
+
 function buildRadarMetadata() {
   const configured = Boolean(RADAR_CONTEXT_URL);
   return {
@@ -280,6 +326,7 @@ async function buildWeather() {
   let bundle = null;
   let pwsError = '';
   let forecastError = '';
+  let liveFallbackCurrent = null;
 
   if (WEATHER_KEY) {
     try {
@@ -306,10 +353,11 @@ async function buildWeather() {
   }
 
   if (!bundle) bundle = await getNwsBundle();
+  if (!pws) liveFallbackCurrent = await loadOpenMeteoCurrent().catch(() => null);
   const airQuality = await loadAirQuality();
   const firstForecast = bundle.forecast[0] || { high: 0, low: 0, condition: 'Unknown', precipitationChance: 0 };
   const firstHourly = bundle.hourlyTrend[0] || { temp: firstForecast.high, feelsLike: firstForecast.high };
-  const current = pws || {
+  const current = pws || liveFallbackCurrent || {
     temperature: firstHourly.temp,
     feelsLike: firstHourly.feelsLike,
     humidity: 0,
@@ -323,6 +371,7 @@ async function buildWeather() {
   const currentCondition = condition(current.conditionText || firstForecast.condition);
   const rain = Number(n(current.precipToday, 0).toFixed(2));
   const isStorm = currentCondition === 'Thunderstorms';
+  const hasLiveWeather = Boolean(pws || liveFallbackCurrent || bundle);
 
   return {
     station: {
@@ -359,12 +408,12 @@ async function buildWeather() {
     precipitation: buildPrecipitation(current),
     lightning: { total: isStorm ? 12 : 0, nearStation: isStorm ? 3 : 0, cloudStrikes: isStorm ? 7 : 0, cloudToGround: isStorm ? 2 : 0 },
     stationStatus: {
-      online: Boolean(pws),
-      signal: pws ? 98 : 70,
-      uptime: pws ? '15d 4h' : 'Unavailable',
-      lastRestart: pws ? 'Apr 13, 1:22 AM' : WEATHER_KEY ? (pwsError || forecastError || 'Weather Underground PWS unavailable') : 'WEATHER_API_KEY missing',
-      dataQuality: pws ? 'Excellent' : 'Forecast fallback',
-      dataQualityScore: pws ? 100 : 70,
+      online: hasLiveWeather,
+      signal: pws ? 98 : hasLiveWeather ? 92 : 0,
+      uptime: pws ? '15d 4h' : hasLiveWeather ? 'Live fallback active' : 'Unavailable',
+      lastRestart: pws ? 'Apr 13, 1:22 AM' : hasLiveWeather ? 'Weather Underground PWS unavailable; using live fallback' : (WEATHER_KEY ? (pwsError || forecastError || 'Weather Underground PWS unavailable') : 'WEATHER_API_KEY missing'),
+      dataQuality: pws ? 'Excellent' : hasLiveWeather ? 'Live fallback' : 'Unavailable',
+      dataQualityScore: pws ? 100 : hasLiveWeather ? 88 : 0,
     },
     camera: { snapshotUrl: process.env.LOREX_CAMERA_SNAPSHOT_URL || process.env.STATION_CAMERA_SNAPSHOT_URL || '', name: process.env.LOREX_CAMERA_NAME || process.env.STATION_CAMERA_NAME || 'Station Camera' },
   };

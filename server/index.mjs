@@ -251,6 +251,54 @@ async function loadPwsSevenDayHistory() {
   };
 }
 
+async function loadPublicHistoryFallback(reason = 'Weather Underground PWS history unavailable') {
+  const url = new URL('https://api.open-meteo.com/v1/forecast');
+  url.searchParams.set('latitude', String(cfg.latitude));
+  url.searchParams.set('longitude', String(cfg.longitude));
+  url.searchParams.set('daily', 'temperature_2m_max,temperature_2m_min,temperature_2m_mean,precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max');
+  url.searchParams.set('temperature_unit', 'fahrenheit');
+  url.searchParams.set('wind_speed_unit', 'mph');
+  url.searchParams.set('precipitation_unit', 'inch');
+  url.searchParams.set('timezone', cfg.timeZone);
+  url.searchParams.set('past_days', '7');
+  url.searchParams.set('forecast_days', '1');
+  const payload = await getJson(url);
+  const daily = payload?.daily || {};
+  const allTimes = daily.time || [];
+  const times = allTimes.slice(-7);
+  const summaries = times.map((date, index) => {
+    const sourceIndex = allTimes.length - times.length + index;
+    return {
+      date,
+      stationId: cfg.stationId,
+      obsTimeLocal: `${date} 23:59:59`,
+      obsTimeUtc: new Date(`${date}T23:59:59`).toISOString(),
+      humidityAvg: null,
+      humidityHigh: null,
+      humidityLow: null,
+      uvHigh: null,
+      windDirectionAvg: null,
+      tempHigh: optionalNumber(daily.temperature_2m_max?.[sourceIndex]),
+      tempLow: optionalNumber(daily.temperature_2m_min?.[sourceIndex]),
+      tempAvg: optionalNumber(daily.temperature_2m_mean?.[sourceIndex]),
+      windSpeedHigh: optionalNumber(daily.wind_speed_10m_max?.[sourceIndex]),
+      windSpeedAvg: null,
+      windGustHigh: optionalNumber(daily.wind_gusts_10m_max?.[sourceIndex]),
+      pressureMax: null,
+      pressureMin: null,
+      precipTotal: optionalNumber(daily.precipitation_sum?.[sourceIndex]),
+    };
+  });
+  return {
+    source: 'Open-Meteo public archive fallback',
+    stationId: cfg.stationId,
+    units: 'e',
+    generatedAt: new Date().toISOString(),
+    fallbackReason: reason,
+    summaries,
+  };
+}
+
 function readPwsCurrent(payload) {
   const obs = payload?.observations?.[0] || {};
   const imperial = obs.imperial || {};
@@ -265,6 +313,53 @@ function readPwsCurrent(payload) {
     conditionText: obs.wxPhraseLong || '',
     precipToday: f(imperial.precipTotal),
     precipRate: f(imperial.precipRate),
+  };
+}
+
+function windDirectionFromDegrees(value) {
+  const degrees = Number(value);
+  if (!Number.isFinite(degrees)) return 'Unavailable';
+  const labels = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+  return labels[Math.round(degrees / 22.5) % 16];
+}
+
+function conditionFromWeatherCode(code, isDay = true) {
+  const value = Number(code);
+  if (value === 0) return isDay ? 'Sunny' : 'Clear Night';
+  if (value === 1) return isDay ? 'Mostly Sunny' : 'Clear Night';
+  if (value === 2) return 'Partly Cloudy';
+  if (value === 3) return 'Cloudy';
+  if ([45, 48].includes(value)) return 'Fog';
+  if ([51, 53, 55, 56, 57, 80, 81, 82].includes(value)) return 'Showers';
+  if ([61, 63, 65, 66, 67].includes(value)) return 'Rain';
+  if ([71, 73, 75, 77, 85, 86].includes(value)) return 'Snow';
+  if ([95, 96, 99].includes(value)) return 'Thunderstorms';
+  return 'Unknown';
+}
+
+async function loadOpenMeteoCurrent() {
+  const url = new URL('https://api.open-meteo.com/v1/forecast');
+  url.searchParams.set('latitude', String(cfg.latitude));
+  url.searchParams.set('longitude', String(cfg.longitude));
+  url.searchParams.set('current', 'temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,pressure_msl,wind_speed_10m,wind_direction_10m,wind_gusts_10m,is_day');
+  url.searchParams.set('daily', 'precipitation_sum');
+  url.searchParams.set('temperature_unit', 'fahrenheit');
+  url.searchParams.set('wind_speed_unit', 'mph');
+  url.searchParams.set('precipitation_unit', 'inch');
+  url.searchParams.set('timezone', cfg.timeZone);
+  const payload = await getJson(url);
+  const current = payload?.current || {};
+  return {
+    temperature: f(current.temperature_2m),
+    feelsLike: f(current.apparent_temperature, current.temperature_2m),
+    humidity: f(current.relative_humidity_2m),
+    pressure: Number((f(current.pressure_msl, 1013.25) / 33.8639).toFixed(2)),
+    windSpeed: f(current.wind_speed_10m),
+    windGust: f(current.wind_gusts_10m),
+    windDirection: windDirectionFromDegrees(current.wind_direction_10m),
+    conditionText: conditionFromWeatherCode(current.weather_code, current.is_day === 1),
+    precipToday: f(payload?.daily?.precipitation_sum?.[0], f(current.precipitation, 0)),
+    precipRate: f(current.precipitation, 0),
   };
 }
 
@@ -890,9 +985,10 @@ async function loadWeatherUndergroundStation() {
   }
 
   const airQuality = await loadAirQuality();
+  const liveFallbackCurrent = currentPayload ? null : await loadOpenMeteoCurrent().catch(() => null);
   const current = currentPayload
     ? readPwsCurrent(currentPayload)
-    : {
+    : liveFallbackCurrent || {
         temperature: hourlyTrend?.[0]?.temp ?? forecast?.[0]?.high ?? 0,
         feelsLike: hourlyTrend?.[0]?.feelsLike ?? hourlyTrend?.[0]?.temp ?? forecast?.[0]?.high ?? 0,
         humidity: 0,
@@ -904,6 +1000,7 @@ async function loadWeatherUndergroundStation() {
         precipToday: 0,
         precipRate: 0,
       };
+  const hasLiveWeather = Boolean(currentPayload || liveFallbackCurrent || forecast?.length);
 
   return buildStationData({
     current,
@@ -915,12 +1012,12 @@ async function loadWeatherUndergroundStation() {
     stationStatus: currentPayload
       ? undefined
       : {
-          online: false,
-          signal: 70,
-          uptime: 'Unavailable',
-          lastRestart: pwsError || 'Weather Underground PWS unavailable',
-          dataQuality: 'Forecast fallback',
-          dataQualityScore: 70,
+          online: hasLiveWeather,
+          signal: hasLiveWeather ? 92 : 0,
+          uptime: hasLiveWeather ? 'Live fallback active' : 'Unavailable',
+          lastRestart: hasLiveWeather ? 'Weather Underground PWS unavailable; using live fallback' : pwsError || 'Weather Underground PWS unavailable',
+          dataQuality: hasLiveWeather ? 'Live fallback' : 'Unavailable',
+          dataQualityScore: hasLiveWeather ? 88 : 0,
         },
   });
 }
@@ -972,10 +1069,10 @@ app.get('/api/history', async (_req, res) => {
     res.set('Cache-Control', 'private, max-age=900');
     res.json(data);
   } catch (error) {
-    res.status(502).json({
-      error: 'Unable to load Weather Underground PWS 7-day history',
-      message: error instanceof Error ? error.message : 'Unknown provider error',
-    });
+    const reason = error instanceof Error ? error.message : 'Unknown provider error';
+    const data = await loadPublicHistoryFallback(reason);
+    res.set('Cache-Control', 'private, max-age=900');
+    res.json(data);
   }
 });
 

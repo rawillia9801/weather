@@ -1,5 +1,8 @@
 const STATION_ID = envValue('STATION_ID') || envValue('WEATHER_UNDERGROUND_STATION_ID') || 'KVAMARIO42';
 const WEATHER_KEY = weatherKeyValue();
+const LATITUDE = Number(envValue('LATITUDE') || envValue('STATION_LAT') || 36.8348);
+const LONGITUDE = Number(envValue('LONGITUDE') || envValue('STATION_LON') || -81.5148);
+const TIME_ZONE = envValue('REPORT_TIME_ZONE') || envValue('TZ') || 'America/New_York';
 
 function envValue(name) {
   return process.env[name]?.trim();
@@ -102,15 +105,63 @@ async function loadPwsSevenDayHistory() {
   };
 }
 
+async function loadPublicHistoryFallback(reason = 'Weather Underground PWS history unavailable') {
+  const url = new URL('https://api.open-meteo.com/v1/forecast');
+  url.searchParams.set('latitude', String(LATITUDE));
+  url.searchParams.set('longitude', String(LONGITUDE));
+  url.searchParams.set('daily', 'temperature_2m_max,temperature_2m_min,temperature_2m_mean,precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max');
+  url.searchParams.set('temperature_unit', 'fahrenheit');
+  url.searchParams.set('wind_speed_unit', 'mph');
+  url.searchParams.set('precipitation_unit', 'inch');
+  url.searchParams.set('timezone', TIME_ZONE);
+  url.searchParams.set('past_days', '7');
+  url.searchParams.set('forecast_days', '1');
+  const payload = await getJson(url);
+  const daily = payload?.daily || {};
+  const allTimes = daily.time || [];
+  const times = allTimes.slice(-7);
+  const summaries = times.map((date, index) => {
+    const sourceIndex = allTimes.length - times.length + index;
+    return {
+      date,
+      stationId: STATION_ID,
+      obsTimeLocal: `${date} 23:59:59`,
+      obsTimeUtc: new Date(`${date}T23:59:59`).toISOString(),
+      humidityAvg: null,
+      humidityHigh: null,
+      humidityLow: null,
+      uvHigh: null,
+      windDirectionAvg: null,
+      tempHigh: optionalNumber(daily.temperature_2m_max?.[sourceIndex]),
+      tempLow: optionalNumber(daily.temperature_2m_min?.[sourceIndex]),
+      tempAvg: optionalNumber(daily.temperature_2m_mean?.[sourceIndex]),
+      windSpeedHigh: optionalNumber(daily.wind_speed_10m_max?.[sourceIndex]),
+      windSpeedAvg: null,
+      windGustHigh: optionalNumber(daily.wind_gusts_10m_max?.[sourceIndex]),
+      pressureMax: null,
+      pressureMin: null,
+      precipTotal: optionalNumber(daily.precipitation_sum?.[sourceIndex]),
+    };
+  });
+  return {
+    source: 'Open-Meteo public archive fallback',
+    stationId: STATION_ID,
+    units: 'e',
+    generatedAt: new Date().toISOString(),
+    fallbackReason: reason,
+    summaries,
+  };
+}
+
 export default async function handler(_req, res) {
   try {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Cache-Control', 'private, max-age=900');
     return res.status(200).json(await loadPwsSevenDayHistory());
   } catch (error) {
-    return res.status(502).json({
-      error: 'Unable to load Weather Underground PWS 7-day history',
-      message: error instanceof Error ? error.message : 'Unknown provider error',
-    });
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'private, max-age=900');
+    const reason = error instanceof Error ? error.message : 'Unknown provider error';
+    return res.status(200).json(await loadPublicHistoryFallback(reason));
   }
 }
