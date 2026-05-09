@@ -2,6 +2,12 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "installCommand": "npm install",
+  "crons": [
+    {
+      "path": "/api/cron/daily-brief",
+      "schedule": "0 11 * * *"
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
