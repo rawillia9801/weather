@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { Bell, Clock3, FileText, Grid2X2, History, Settings } from 'lucide-react';
 import { LiveBadge } from '../ui/LiveBadge';
-import type { StationInfo } from '../../types/weather';
+import type { StationInfo, StationStatus } from '../../types/weather';
 
 const tabs = [
   { label: 'Dashboard', icon: Grid2X2, to: '/dashboard' },
@@ -11,7 +11,7 @@ const tabs = [
   { label: 'Settings', icon: Settings, to: '/settings' },
 ];
 
-export function Header({ station, clock }: { station: StationInfo; clock: string }) {
+export function Header({ station, clock, status }: { station: StationInfo; clock: string; status: StationStatus }) {
   const date = new Date(clock);
   const timeLabel = date.toLocaleString('en-US', {
     hour: 'numeric',
@@ -31,7 +31,7 @@ export function Header({ station, clock }: { station: StationInfo; clock: string
           <span>&bull;</span>
           <span>Station {station.id}</span>
           <span>&bull;</span>
-          <LiveBadge />
+          <LiveBadge label={status.online ? 'LIVE' : 'OFFLINE'} tone={status.online ? 'green' : 'amber'} />
         </div>
       </div>
 
@@ -40,7 +40,7 @@ export function Header({ station, clock }: { station: StationInfo; clock: string
           <Clock3 className="h-4 w-4" />
           {timeLabel}
         </div>
-        <LiveBadge />
+        <LiveBadge label={status.online ? 'LIVE' : 'OFFLINE'} tone={status.online ? 'green' : 'amber'} />
         <nav className="top-tabs" aria-label="Dashboard sections">
           {tabs.map(({ label, icon: Icon, to, badge }) => (
             <NavLink key={label} to={to} className={({ isActive }) => `top-tab ${isActive ? 'active' : ''}`} aria-label={label}>

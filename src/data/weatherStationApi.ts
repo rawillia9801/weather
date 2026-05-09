@@ -21,7 +21,7 @@ export async function fetchWeatherStationData(): Promise<WeatherStationData> {
     return payload;
   } catch (error) {
     if (API_BASE_URL) throw error;
-    return fetchPublicWeatherFallback(error instanceof Error ? error.message : 'Weather Underground endpoint unavailable');
+    return fetchPublicWeatherFallback(cleanUnavailableReason(error instanceof Error ? error.message : 'Weather Underground endpoint unavailable'));
   }
 }
 
@@ -175,6 +175,16 @@ function buildFallbackWeather(forecastPayload: any, aqiPayload: any, alertsPaylo
       name: 'Station Camera',
     },
   };
+}
+
+function cleanUnavailableReason(reason: string) {
+  if (/non-JSON|<!doctype|<html|404/i.test(reason)) {
+    return 'Backend API route unavailable';
+  }
+  if (/WEATHER_API_KEY/i.test(reason)) {
+    return 'Weather Underground API key missing';
+  }
+  return reason.length > 90 ? `${reason.slice(0, 87)}...` : reason;
 }
 
 function conditionFromCode(code: number, isDay: boolean) {

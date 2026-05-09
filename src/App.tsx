@@ -148,7 +148,7 @@ function AppShell() {
       <div className="global-atmosphere" />
       <Sidebar status={data.stationStatus} />
       <main className="main-dashboard">
-        <Header station={data.station} clock={data.clock} />
+        <Header station={data.station} clock={data.clock} status={data.stationStatus} />
         <MobileNav />
         {import.meta.env.DEV && (
           <div className="dev-condition-select" aria-label="Development condition theme preview">
@@ -168,8 +168,11 @@ function AppShell() {
           <Route path="/maps" element={<ControlsGate><MapsPage data={data} config={config} /></ControlsGate>} />
           <Route path="/cameras" element={<ControlsGate><CamerasPage data={data} config={config} /></ControlsGate>} />
           <Route path="/settings" element={<ControlsGate><SettingsPage data={data} config={config} reload={reload} /></ControlsGate>} />
+          <Route path="/privacy" element={<LegalPage type="privacy" />} />
+          <Route path="/terms" element={<LegalPage type="terms" />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
+        <SiteFooter />
       </main>
     </div>
   );
@@ -727,7 +730,7 @@ function SettingsPage({ data, config, reload }: { data: WeatherStationData; conf
   return (
     <section className="page-view">
       <PageHeader title="Settings" subtitle="Station configuration, contacts, delivery preferences, integrations, and alert thresholds." />
-      {!config?.supabaseConfigured && <Unavailable title="Supabase persistence is not configured">Add Supabase URL and service role key to the backend environment. Real settings are not stored in localStorage.</Unavailable>}
+      {!config?.supabaseConfigured && <Unavailable title="Supabase persistence is not configured">Add the Supabase public URL and anon key to the frontend build, or enable the backend API route with the service role key. Real settings are not stored in localStorage.</Unavailable>}
       <div className="page-grid two">
         <GlassCard className="page-card settings-card">
           <h3>Station Settings</h3>
@@ -788,6 +791,66 @@ function SettingsPage({ data, config, reload }: { data: WeatherStationData; conf
         </GlassCard>
       </div>
       <IntegrationGrid rows={config?.integration_status || []} />
+    </section>
+  );
+}
+
+function SiteFooter() {
+  return (
+    <footer className="site-footer">
+      <span>StaleyClimate.Info is ran by Southwest Virginia Chihuahua.</span>
+      <NavLink to="/privacy">Privacy Policy</NavLink>
+      <NavLink to="/terms">Terms and Conditions</NavLink>
+    </footer>
+  );
+}
+
+function LegalPage({ type }: { type: 'privacy' | 'terms' }) {
+  const isPrivacy = type === 'privacy';
+  return (
+    <section className="page-view legal-page">
+      <PageHeader
+        title={isPrivacy ? 'Privacy Policy' : 'Terms and Conditions'}
+        subtitle={isPrivacy ? 'How StaleyClimate.Info weather alert contact information is handled.' : 'Terms for StaleyClimate.Info weather alert messaging.'}
+      />
+      <GlassCard className="page-card legal-card">
+        {isPrivacy ? (
+          <>
+            <h3>Privacy Policy</h3>
+            <p>Your privacy is important to us. This policy explains what information we collect, how we use it, and your choices regarding your information.</p>
+            <h4>Information We Collect</h4>
+            <p>We collect your mobile phone number and, if provided, your name or email address for the sole purpose of sending you weather alert messages.</p>
+            <h4>How We Use Your Information</h4>
+            <p>Your information is used exclusively to deliver weather alerts and related notifications. We do not share, sell, or disclose your information to third parties for marketing or any other purposes.</p>
+            <h4>Opt-Out</h4>
+            <p>You may opt out of receiving messages at any time by replying STOP to any message you receive from us. Your number will be promptly removed from our notification list.</p>
+            <h4>Data Security</h4>
+            <p>We take reasonable measures to protect your information from unauthorized access or disclosure.</p>
+            <h4>Contact Us</h4>
+            <p>If you have any questions about this policy, please contact us at 2767804739.</p>
+            <small>Last updated: May 3, 2026</small>
+          </>
+        ) : (
+          <>
+            <h3>Terms and Conditions</h3>
+            <p><strong>Program Name:</strong> StaleyClimate.Info Weather Alerts</p>
+            <p><strong>Description:</strong> Receive weather alerts and important notifications related to your area.</p>
+            <p><strong>Message Frequency:</strong> Message frequency will vary based on weather conditions and alerts.</p>
+            <p><strong>Message & Data Rates:</strong> Message and data rates may apply. Please check with your mobile carrier.</p>
+            <h4>Opt-In</h4>
+            <p>You will only receive messages if you have requested to be added to our notification list. By providing your mobile number, you consent to receive recurring weather alert messages from us.</p>
+            <h4>Opt-Out</h4>
+            <p>You may opt out at any time by replying STOP to any message. For help, reply HELP or contact us at 2767804739.</p>
+            <h4>Privacy</h4>
+            <p>We respect your privacy. Please see our Privacy Policy for details on how your information is handled.</p>
+            <h4>Support</h4>
+            <p>For support, contact 2767804739.</p>
+            <h4>Changes to Terms</h4>
+            <p>We may update these terms from time to time. Continued use of the service constitutes acceptance of the new terms.</p>
+            <small>Last updated: May 3, 2026</small>
+          </>
+        )}
+      </GlassCard>
     </section>
   );
 }

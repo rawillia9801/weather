@@ -232,6 +232,14 @@
     box-shadow: 0 0 16px rgba(34,197,94,.8);
     animation: livePulse 1.8s infinite;
   }
+  .live-badge-amber {
+    color: #fbbf24;
+  }
+  .live-badge-amber .live-dot,
+  .live-dot-amber {
+    background: #f59e0b;
+    box-shadow: 0 0 16px rgba(245,158,11,.75);
+  }
 
   .top-tabs { display: flex; gap: 8px; width: 100%; justify-content: flex-end; }
 
@@ -898,6 +906,55 @@
   .alarm-card.warning strong, .integration-card .missing { color: #fbbf24; }
   .alarm-card.critical strong { color: #fb7185; }
   .integration-card .ok { color: #86efac; }
+  .site-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 10px 16px;
+    margin: 12px 0 4px;
+    border: 1px solid rgba(34,211,238,.18);
+    border-radius: 12px;
+    background: rgba(3, 16, 28, .48);
+    padding: 10px 12px;
+    color: rgba(255,255,255,.62);
+    font-size: .72rem;
+  }
+  .site-footer a {
+    color: #67e8f9;
+    font-weight: 800;
+    text-decoration: none;
+  }
+  .site-footer a:hover {
+    color: #e0fbff;
+  }
+  .legal-page {
+    max-width: 980px;
+  }
+  .legal-card {
+    display: grid;
+    gap: 10px;
+    line-height: 1.6;
+  }
+  .legal-card h3 {
+    color: #fff;
+    font-size: 1.25rem;
+  }
+  .legal-card h4 {
+    margin-top: 6px;
+    color: #67e8f9;
+    font-size: .78rem;
+    font-weight: 900;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+  .legal-card p {
+    color: rgba(255,255,255,.78);
+  }
+  .legal-card small {
+    margin-top: 6px;
+    color: rgba(255,255,255,.52);
+  }
   .report-strip, .button-row {
     display: flex;
     flex-wrap: wrap;
