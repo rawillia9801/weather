@@ -2,6 +2,7 @@ import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 import dotenv from 'dotenv';
 
 const app = express();
@@ -67,6 +68,11 @@ function supabaseCanRead() {
 
 function supabaseCanWrite() {
   return Boolean(cfg.supabaseUrl && cfg.supabaseServiceRoleKey && jwtSegments(cfg.supabaseServiceRoleKey) === 3);
+}
+
+function keyFingerprint(value) {
+  if (!value) return '';
+  return createHash('sha256').update(value).digest('hex').slice(0, 12);
 }
 
 app.use((req, res, next) => {
@@ -570,12 +576,12 @@ async function supabaseRest(table, options = {}) {
   if (mutating && !supabaseCanWrite()) {
     throw new Error('Supabase server write key is not usable. Contacts and settings writes require a complete service-role JWT on the server.');
   }
-  const key = options.requireServiceRole || mutating ? cfg.supabaseServiceRoleKey : (cfg.supabaseServiceRoleKey || cfg.supabaseAnonKey);
+  const key = options.requireServiceRole || mutating ? cfg.supabaseServiceRoleKey : (supabaseCanWrite() ? cfg.supabaseServiceRoleKey : cfg.supabaseAnonKey);
   if (!key) throw new Error('Supabase API key is not configured');
   const url = new URL(`${cfg.supabaseUrl}/rest/v1/${table}`);
   Object.entries(options.query || {}).forEach(([key, value]) => url.searchParams.set(key, String(value)));
   let response = await fetchSupabase(url, key, options);
-  if (!response.ok && !mutating && cfg.supabaseServiceRoleKey && cfg.supabaseAnonKey) {
+  if (!response.ok && !mutating && key !== cfg.supabaseAnonKey && cfg.supabaseAnonKey) {
     response = await fetchSupabase(url, cfg.supabaseAnonKey, options);
   }
   if (!response.ok) {
@@ -878,6 +884,11 @@ app.get('/api/health', (_req, res) => {
     ok: true,
     stationId: cfg.stationId,
     provider: 'weather-underground-pws',
+    weatherApi: {
+      configured: Boolean(cfg.weatherKey),
+      length: cfg.weatherKey?.length || 0,
+      sha12: keyFingerprint(cfg.weatherKey),
+    },
     supabase: {
       urlConfigured: Boolean(cfg.supabaseUrl),
       serviceKeyConfigured: Boolean(cfg.supabaseServiceRoleKey),

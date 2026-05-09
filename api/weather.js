@@ -1,10 +1,14 @@
-const STATION_ID = process.env.STATION_ID || process.env.WEATHER_UNDERGROUND_STATION_ID || 'KVAMARIO42';
-const LATITUDE = Number(process.env.LATITUDE || process.env.STATION_LAT || 36.8348);
-const LONGITUDE = Number(process.env.LONGITUDE || process.env.STATION_LON || -81.5148);
-const TIME_ZONE = process.env.REPORT_TIME_ZONE || process.env.TZ || 'America/New_York';
-const WEATHER_KEY = process.env.WEATHER_API_KEY || process.env.WEATHER_UNDERGROUND_API_KEY || process.env.VITE_WEATHER_API_KEY;
-const RADAR_CONTEXT_URL = process.env.RADAR_CONTEXT_URL || '';
-const RADAR_PROVIDER_NAME = process.env.RADAR_PROVIDER_NAME || 'Radar provider';
+const STATION_ID = envValue('STATION_ID') || envValue('WEATHER_UNDERGROUND_STATION_ID') || 'KVAMARIO42';
+const LATITUDE = Number(envValue('LATITUDE') || envValue('STATION_LAT') || 36.8348);
+const LONGITUDE = Number(envValue('LONGITUDE') || envValue('STATION_LON') || -81.5148);
+const TIME_ZONE = envValue('REPORT_TIME_ZONE') || envValue('TZ') || 'America/New_York';
+const WEATHER_KEY = envValue('WEATHER_API_KEY') || envValue('WEATHER_UNDERGROUND_API_KEY') || envValue('VITE_WEATHER_API_KEY');
+const RADAR_CONTEXT_URL = envValue('RADAR_CONTEXT_URL') || '';
+const RADAR_PROVIDER_NAME = envValue('RADAR_PROVIDER_NAME') || 'Radar provider';
+
+function envValue(name) {
+  return process.env[name]?.trim();
+}
 
 const conditionMap = [
   ['thunder', 'Thunderstorms'],
@@ -167,6 +171,12 @@ function alertsFromNws(payload) {
   });
 }
 
+function cleanProviderReason(error) {
+  const message = error instanceof Error ? error.message : String(error || '');
+  if (!message) return 'Weather Underground PWS unavailable';
+  return message.replace(/\s+/g, ' ').slice(0, 140);
+}
+
 async function loadAirQuality() {
   const url = new URL('https://air-quality-api.open-meteo.com/v1/air-quality');
   url.searchParams.set('latitude', String(LATITUDE));
@@ -258,11 +268,15 @@ async function buildWeather() {
   let pws = null;
   let daily = null;
   let bundle = null;
+  let pwsError = '';
+  let forecastError = '';
 
   if (WEATHER_KEY) {
     try {
       pws = currentFromPws(await weatherCom('/v2/pws/observations/current', { stationId: STATION_ID, format: 'json', units: 'e' }));
-    } catch {}
+    } catch (error) {
+      pwsError = cleanProviderReason(error);
+    }
     try {
       const geocode = `${LATITUDE},${LONGITUDE}`;
       const [dailyPayload, hourlyPayload, alertPayload] = await Promise.all([
@@ -276,7 +290,9 @@ async function buildWeather() {
         hourlyTrend: hourlyFromWeatherCom(hourlyPayload),
         alerts: (alertPayload.alerts || []).slice(0, 3).map((alert, index) => ({ id: alert.detailKey || `alert-${index}`, title: alert.eventDescription || alert.headlineText || 'Weather alert', severity: 'advisory' })),
       };
-    } catch {}
+    } catch (error) {
+      forecastError = cleanProviderReason(error);
+    }
   }
 
   if (!bundle) bundle = await getNwsBundle();
@@ -336,7 +352,7 @@ async function buildWeather() {
       online: Boolean(pws),
       signal: pws ? 98 : 70,
       uptime: pws ? '15d 4h' : 'Unavailable',
-      lastRestart: pws ? 'Apr 13, 1:22 AM' : WEATHER_KEY ? 'Weather Underground PWS unavailable' : 'WEATHER_API_KEY missing',
+      lastRestart: pws ? 'Apr 13, 1:22 AM' : WEATHER_KEY ? (pwsError || forecastError || 'Weather Underground PWS unavailable') : 'WEATHER_API_KEY missing',
       dataQuality: pws ? 'Excellent' : 'Forecast fallback',
       dataQualityScore: pws ? 100 : 70,
     },

@@ -1,5 +1,9 @@
-const STATION_ID = process.env.STATION_ID || process.env.WEATHER_UNDERGROUND_STATION_ID || 'KVAMARIO42';
-const WEATHER_KEY = process.env.WEATHER_API_KEY || process.env.WEATHER_UNDERGROUND_API_KEY || process.env.VITE_WEATHER_API_KEY;
+const STATION_ID = envValue('STATION_ID') || envValue('WEATHER_UNDERGROUND_STATION_ID') || 'KVAMARIO42';
+const WEATHER_KEY = envValue('WEATHER_API_KEY') || envValue('WEATHER_UNDERGROUND_API_KEY') || envValue('VITE_WEATHER_API_KEY');
+
+function envValue(name) {
+  return process.env[name]?.trim();
+}
 
 function optionalNumber(value) {
   const number = Number(value);

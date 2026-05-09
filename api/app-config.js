@@ -110,8 +110,9 @@ async function supabaseRest(table, query = {}) {
   if (!configured()) return [];
   const url = new URL(`${cfg.supabaseUrl}/rest/v1/${table}`);
   Object.entries(query).forEach(([key, value]) => url.searchParams.set(key, String(value)));
-  const response = await fetchSupabase(url, cfg.supabaseServiceRoleKey || cfg.supabaseAnonKey);
-  if (!response.ok && cfg.supabaseServiceRoleKey && cfg.supabaseAnonKey) {
+  const primaryKey = supabaseCanWrite() ? cfg.supabaseServiceRoleKey : cfg.supabaseAnonKey;
+  const response = await fetchSupabase(url, primaryKey);
+  if (!response.ok && primaryKey !== cfg.supabaseAnonKey && cfg.supabaseAnonKey) {
     const anonResponse = await fetchSupabase(url, cfg.supabaseAnonKey);
     if (!anonResponse.ok) return [];
     return anonResponse.json().catch(() => []);
