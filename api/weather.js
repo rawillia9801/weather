@@ -181,6 +181,8 @@ function alertsFromNws(payload) {
 function cleanProviderReason(error) {
   const message = error instanceof Error ? error.message : String(error || '');
   if (!message) return 'Weather Underground PWS unavailable';
+  if (message.includes('Access Denied')) return 'Weather Underground API offline';
+  if (message.includes('Invalid apiKey')) return 'Weather Underground API key rejected';
   return message.replace(/\s+/g, ' ').slice(0, 140);
 }
 
