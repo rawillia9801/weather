@@ -20,7 +20,7 @@ const cfg = {
   timeZone: process.env.REPORT_TIME_ZONE || 'America/New_York',
   cameraUrl: process.env.LOREX_CAMERA_SNAPSHOT_URL || '',
   cameraName: process.env.LOREX_CAMERA_NAME || 'Cars Camera',
-  supabaseUrl: envValue('SUPABASE_URL') || envValue('NEXT_PUBLIC_SUPABASE_URL') || envValue('VITE_SUPABASE_URL'),
+  supabaseUrl: supabaseProjectUrl(),
   supabaseServiceRoleKey: envValue('SUPABASE_SERVICE_ROLE_KEY') || envValue('SUPABASE_SERVICE_KEY') || envValue('SUPABASE_SECRET_KEY') || envValue('SUPABASE_SERVICE_ROLE'),
   supabaseAnonKey: envValue('NEXT_PUBLIC_SUPABASE_ANON_KEY') || envValue('VITE_SUPABASE_ANON_KEY') || envValue('SUPABASE_ANON_KEY'),
   resendApiKey: process.env.RESEND_API_KEY,
@@ -43,6 +43,30 @@ const cfg = {
 
 function envValue(name) {
   return process.env[name]?.trim();
+}
+
+function supabaseProjectUrl() {
+  const raw =
+    envValue('SUPABASE_URL') ||
+    envValue('NEXT_PUBLIC_SUPABASE_URL') ||
+    envValue('VITE_SUPABASE_URL') ||
+    envValue('SUPABASE_API_URL') ||
+    envValue('NEXT_PUBLIC_SUPABASE_API_URL') ||
+    envValue('VITE_SUPABASE_API_URL');
+  if (!raw) return '';
+  return raw.replace(/\/rest\/v1\/?$/i, '').replace(/\/$/, '');
+}
+
+function jwtSegments(value) {
+  return value ? value.split('.').length : 0;
+}
+
+function supabaseCanRead() {
+  return Boolean(cfg.supabaseUrl && (cfg.supabaseServiceRoleKey || cfg.supabaseAnonKey));
+}
+
+function supabaseCanWrite() {
+  return Boolean(cfg.supabaseUrl && cfg.supabaseServiceRoleKey && jwtSegments(cfg.supabaseServiceRoleKey) === 3);
 }
 
 app.use((req, res, next) => {
@@ -537,12 +561,15 @@ const defaultAppConfig = {
 };
 
 function supabaseConfigured() {
-  return Boolean(cfg.supabaseUrl && (cfg.supabaseServiceRoleKey || cfg.supabaseAnonKey));
+  return supabaseCanRead();
 }
 
 async function supabaseRest(table, options = {}) {
   if (!supabaseConfigured()) throw new Error('Supabase is not configured');
   const mutating = options.method && options.method !== 'GET';
+  if (mutating && !supabaseCanWrite()) {
+    throw new Error('Supabase server write key is not usable. Contacts and settings writes require a complete service-role JWT on the server.');
+  }
   const key = options.requireServiceRole || mutating ? cfg.supabaseServiceRoleKey : (cfg.supabaseServiceRoleKey || cfg.supabaseAnonKey);
   if (!key) throw new Error('Supabase API key is not configured');
   const url = new URL(`${cfg.supabaseUrl}/rest/v1/${table}`);
@@ -600,6 +627,15 @@ async function loadAppConfig() {
 
   return {
     supabaseConfigured: supabaseConfigured(),
+    supabaseStatus: {
+      readConfigured: supabaseCanRead(),
+      writeConfigured: supabaseCanWrite(),
+      urlConfigured: Boolean(cfg.supabaseUrl),
+      serviceRoleConfigured: Boolean(cfg.supabaseServiceRoleKey),
+      serviceRoleSegments: jwtSegments(cfg.supabaseServiceRoleKey),
+      anonConfigured: Boolean(cfg.supabaseAnonKey),
+      anonSegments: jwtSegments(cfg.supabaseAnonKey),
+    },
     deliveryConfigured: {
       resend: Boolean(cfg.resendApiKey && cfg.resendFromEmail),
       twilio: Boolean(cfg.twilioAccountSid && cfg.twilioApiKeySid && cfg.twilioApiKeySecret && cfg.twilioFromNumber),
@@ -838,7 +874,20 @@ async function loadWeatherUndergroundStation() {
 }
 
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, stationId: cfg.stationId, provider: 'weather-underground-pws' });
+  res.json({
+    ok: true,
+    stationId: cfg.stationId,
+    provider: 'weather-underground-pws',
+    supabase: {
+      urlConfigured: Boolean(cfg.supabaseUrl),
+      serviceKeyConfigured: Boolean(cfg.supabaseServiceRoleKey),
+      serviceKeySegments: jwtSegments(cfg.supabaseServiceRoleKey),
+      anonKeyConfigured: Boolean(cfg.supabaseAnonKey),
+      anonKeySegments: jwtSegments(cfg.supabaseAnonKey),
+      readConfigured: supabaseCanRead(),
+      writeConfigured: supabaseCanWrite(),
+    },
+  });
 });
 
 app.get('/api/weather', async (_req, res) => {

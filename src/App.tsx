@@ -311,6 +311,7 @@ function HistoryPage({ data }: { data: WeatherStationData }) {
   }, []);
 
   const summaries = history?.summaries || [];
+  const historyProviderLabel = history?.fallbackReason ? 'Public archive fallback' : 'Weather Underground PWS Daily Summary';
   const summaryCards = summaries.length
     ? [
         ['Highest temperature', formatNumber(maxValue(summaries, 'tempHigh'), 'F')],
@@ -334,7 +335,7 @@ function HistoryPage({ data }: { data: WeatherStationData }) {
       <PageHeader title="Station History" subtitle={`Historical observations from Staley Street Weather - ${data.station.id}`} />
       <div className="history-toolbar">
         <div>
-          <strong>Weather Underground PWS Daily Summary</strong>
+          <strong>{historyProviderLabel}</strong>
           <span>{history ? `${history.source} • ${formatDateTime(history.generatedAt)}` : 'Loading 7-day station archive...'}</span>
           {history?.fallbackReason && <span className="history-fallback-note">PWS history route unavailable. Showing public archive fallback.</span>}
         </div>
@@ -349,7 +350,7 @@ function HistoryPage({ data }: { data: WeatherStationData }) {
       {summaries.length > 0 ? (
         <>
           <HistoryCharts summaries={summaries} />
-          <HistoryTable summaries={summaries} />
+          <HistoryTable summaries={summaries} providerLabel={historyProviderLabel} />
         </>
       ) : (
         <>
@@ -504,12 +505,12 @@ function HistoryCharts({ summaries }: { summaries: PwsDailySummary[] }) {
   );
 }
 
-function HistoryTable({ summaries }: { summaries: PwsDailySummary[] }) {
+function HistoryTable({ summaries, providerLabel }: { summaries: PwsDailySummary[]; providerLabel: string }) {
   return (
     <GlassCard className="page-card history-table-card">
       <div className="history-table-title">
         <h3>Daily Observations</h3>
-        <span>{summaries.length} Weather Underground PWS summaries</span>
+        <span>{summaries.length} {providerLabel} summaries</span>
       </div>
       <div className="history-table-wrap">
         <table className="history-table">
@@ -708,6 +709,8 @@ function CamerasPage({ data, config }: { data: WeatherStationData; config: AppCo
 function SettingsPage({ data, config, reload }: { data: WeatherStationData; config: AppConfig | null; reload: () => Promise<void> }) {
   const [contact, setContact] = useState<Contact>(emptyContact);
   const [message, setMessage] = useState('');
+  const supabaseReadConfigured = Boolean(config?.supabaseStatus?.readConfigured ?? config?.supabaseConfigured);
+  const supabaseWriteConfigured = Boolean(config?.supabaseStatus?.writeConfigured ?? config?.supabaseConfigured);
 
   async function saveContact(event: React.FormEvent) {
     event.preventDefault();
@@ -730,7 +733,8 @@ function SettingsPage({ data, config, reload }: { data: WeatherStationData; conf
   return (
     <section className="page-view">
       <PageHeader title="Settings" subtitle="Station configuration, contacts, delivery preferences, integrations, and alert thresholds." />
-      {!config?.supabaseConfigured && <Unavailable title="Supabase persistence is not configured">Add the Supabase public URL and anon key to the frontend build, or enable the backend API route with the service role key. Real settings are not stored in localStorage.</Unavailable>}
+      {!supabaseReadConfigured && <Unavailable title="Supabase persistence is not configured">Add the Supabase project URL and anon key to the frontend build, or enable the backend API route with the service role key. Real settings are not stored in localStorage.</Unavailable>}
+      {supabaseReadConfigured && !supabaseWriteConfigured && <Unavailable title="Supabase reads are configured, but server writes are blocked">The dashboard can read public app configuration, but contacts and settings writes require a complete service-role JWT on the server.</Unavailable>}
       <div className="page-grid two">
         <GlassCard className="page-card settings-card">
           <h3>Station Settings</h3>
@@ -782,6 +786,8 @@ function SettingsPage({ data, config, reload }: { data: WeatherStationData; conf
             ['Timezone', String(config?.daily_brief_schedules?.[0]?.timezone || 'America/New_York')],
             ['Email', config?.deliveryConfigured.resend ? 'Configured' : 'Resend required'],
             ['SMS', config?.deliveryConfigured.twilio ? 'Configured' : 'Twilio required'],
+            ['Supabase reads', supabaseReadConfigured ? 'Configured' : 'Not configured'],
+            ['Supabase writes', supabaseWriteConfigured ? 'Configured' : 'Blocked'],
             ['Scheduler', 'Requires Supabase scheduled function/cron invocation'],
           ]} />
         </GlassCard>

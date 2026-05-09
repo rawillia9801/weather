@@ -5,7 +5,7 @@ const cfg = {
   latitude: Number(process.env.LATITUDE || process.env.STATION_LAT || 36.8348),
   longitude: Number(process.env.LONGITUDE || process.env.STATION_LON || -81.5148),
   timeZone: process.env.REPORT_TIME_ZONE || process.env.TZ || 'America/New_York',
-  supabaseUrl: envValue('SUPABASE_URL') || envValue('NEXT_PUBLIC_SUPABASE_URL') || envValue('VITE_SUPABASE_URL'),
+  supabaseUrl: supabaseProjectUrl(),
   supabaseServiceRoleKey: envValue('SUPABASE_SERVICE_ROLE_KEY') || envValue('SUPABASE_SERVICE_KEY') || envValue('SUPABASE_SECRET_KEY') || envValue('SUPABASE_SERVICE_ROLE'),
   supabaseAnonKey: envValue('NEXT_PUBLIC_SUPABASE_ANON_KEY') || envValue('VITE_SUPABASE_ANON_KEY') || envValue('SUPABASE_ANON_KEY'),
   weatherKey: process.env.WEATHER_API_KEY,
@@ -21,6 +21,30 @@ const cfg = {
 
 function envValue(name) {
   return process.env[name]?.trim();
+}
+
+function supabaseProjectUrl() {
+  const raw =
+    envValue('SUPABASE_URL') ||
+    envValue('NEXT_PUBLIC_SUPABASE_URL') ||
+    envValue('VITE_SUPABASE_URL') ||
+    envValue('SUPABASE_API_URL') ||
+    envValue('NEXT_PUBLIC_SUPABASE_API_URL') ||
+    envValue('VITE_SUPABASE_API_URL');
+  if (!raw) return '';
+  return raw.replace(/\/rest\/v1\/?$/i, '').replace(/\/$/, '');
+}
+
+function jwtSegments(value) {
+  return value ? value.split('.').length : 0;
+}
+
+function supabaseCanRead() {
+  return Boolean(cfg.supabaseUrl && (cfg.supabaseServiceRoleKey || cfg.supabaseAnonKey));
+}
+
+function supabaseCanWrite() {
+  return Boolean(cfg.supabaseUrl && cfg.supabaseServiceRoleKey && jwtSegments(cfg.supabaseServiceRoleKey) === 3);
 }
 
 const fallback = {
@@ -79,7 +103,7 @@ const fallback = {
 };
 
 function configured() {
-  return Boolean(cfg.supabaseUrl && (cfg.supabaseServiceRoleKey || cfg.supabaseAnonKey));
+  return supabaseCanRead();
 }
 
 async function supabaseRest(table, query = {}) {
@@ -119,7 +143,7 @@ function integrationStatus(rows) {
       name === 'Weather Underground PWS' ? Boolean(cfg.weatherKey) :
       name === 'Forecast source' ? true :
       name === 'Camera source' ? Boolean(cfg.cameraUrl) :
-      name === 'Supabase' ? configured() :
+      name === 'Supabase' ? supabaseCanRead() :
       name === 'Resend' ? Boolean(cfg.resendApiKey && cfg.resendFromEmail) :
       name === 'Twilio' ? Boolean((cfg.twilioAuthToken || cfg.twilioApiKeySecret) && (cfg.twilioFromNumber || cfg.twilioMessagingServiceSid)) :
       false,
@@ -144,6 +168,15 @@ export default async function handler(req, res) {
 
     res.status(200).json({
       supabaseConfigured: configured(),
+      supabaseStatus: {
+        readConfigured: supabaseCanRead(),
+        writeConfigured: supabaseCanWrite(),
+        urlConfigured: Boolean(cfg.supabaseUrl),
+        serviceRoleConfigured: Boolean(cfg.supabaseServiceRoleKey),
+        serviceRoleSegments: jwtSegments(cfg.supabaseServiceRoleKey),
+        anonConfigured: Boolean(cfg.supabaseAnonKey),
+        anonSegments: jwtSegments(cfg.supabaseAnonKey),
+      },
       deliveryConfigured: {
         resend: Boolean(cfg.resendApiKey && cfg.resendFromEmail),
         twilio: Boolean((cfg.twilioAuthToken || cfg.twilioApiKeySecret) && (cfg.twilioFromNumber || cfg.twilioMessagingServiceSid)),
@@ -161,6 +194,15 @@ export default async function handler(req, res) {
   } catch (error) {
     res.status(200).json({
       supabaseConfigured: false,
+      supabaseStatus: {
+        readConfigured: supabaseCanRead(),
+        writeConfigured: supabaseCanWrite(),
+        urlConfigured: Boolean(cfg.supabaseUrl),
+        serviceRoleConfigured: Boolean(cfg.supabaseServiceRoleKey),
+        serviceRoleSegments: jwtSegments(cfg.supabaseServiceRoleKey),
+        anonConfigured: Boolean(cfg.supabaseAnonKey),
+        anonSegments: jwtSegments(cfg.supabaseAnonKey),
+      },
       deliveryConfigured: { resend: Boolean(cfg.resendApiKey && cfg.resendFromEmail), twilio: Boolean((cfg.twilioAuthToken || cfg.twilioApiKeySecret) && (cfg.twilioFromNumber || cfg.twilioMessagingServiceSid)) },
       cameraConfigured: Boolean(cfg.cameraUrl),
       ...fallback,

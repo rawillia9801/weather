@@ -1,5 +1,5 @@
 const cfg = {
-  supabaseUrl: envValue('SUPABASE_URL') || envValue('NEXT_PUBLIC_SUPABASE_URL') || envValue('VITE_SUPABASE_URL'),
+  supabaseUrl: supabaseProjectUrl(),
   supabaseServiceRoleKey: envValue('SUPABASE_SERVICE_ROLE_KEY') || envValue('SUPABASE_SERVICE_KEY') || envValue('SUPABASE_SECRET_KEY') || envValue('SUPABASE_SERVICE_ROLE'),
 };
 
@@ -7,8 +7,24 @@ function envValue(name) {
   return process.env[name]?.trim();
 }
 
+function supabaseProjectUrl() {
+  const raw =
+    envValue('SUPABASE_URL') ||
+    envValue('NEXT_PUBLIC_SUPABASE_URL') ||
+    envValue('VITE_SUPABASE_URL') ||
+    envValue('SUPABASE_API_URL') ||
+    envValue('NEXT_PUBLIC_SUPABASE_API_URL') ||
+    envValue('VITE_SUPABASE_API_URL');
+  if (!raw) return '';
+  return raw.replace(/\/rest\/v1\/?$/i, '').replace(/\/$/, '');
+}
+
+function serviceRoleLooksUsable() {
+  return Boolean(cfg.supabaseServiceRoleKey && cfg.supabaseServiceRoleKey.split('.').length === 3);
+}
+
 function configured() {
-  return Boolean(cfg.supabaseUrl && cfg.supabaseServiceRoleKey);
+  return Boolean(cfg.supabaseUrl && serviceRoleLooksUsable());
 }
 
 function validEmail(value) {
@@ -38,7 +54,8 @@ function cleanContact(input = {}) {
 }
 
 async function supabaseRest(table, options = {}) {
-  if (!configured()) throw new Error('Supabase service role is not configured');
+  if (!cfg.supabaseUrl) throw new Error('Supabase project URL is not configured');
+  if (!serviceRoleLooksUsable()) throw new Error('Supabase server write key is not usable. Contacts require a complete service-role JWT on the server.');
   const url = new URL(`${cfg.supabaseUrl}/rest/v1/${table}`);
   Object.entries(options.query || {}).forEach(([key, value]) => url.searchParams.set(key, String(value)));
   const response = await fetch(url, {

@@ -1,7 +1,13 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || import.meta.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const SUPABASE_URL = normalizeSupabaseUrl(
+  import.meta.env.VITE_SUPABASE_URL ||
+    import.meta.env.NEXT_PUBLIC_SUPABASE_URL ||
+    import.meta.env.VITE_SUPABASE_API_URL ||
+    import.meta.env.NEXT_PUBLIC_SUPABASE_API_URL ||
+    '',
+);
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const STATION_ID = import.meta.env.VITE_STATION_ID || 'KVAMARIO42';
 
@@ -51,6 +57,15 @@ async function readJsonResponse(response: Response, path: string) {
 
 export interface AppConfig {
   supabaseConfigured: boolean;
+  supabaseStatus?: {
+    readConfigured: boolean;
+    writeConfigured: boolean;
+    urlConfigured: boolean;
+    serviceRoleConfigured: boolean;
+    serviceRoleSegments: number;
+    anonConfigured: boolean;
+    anonSegments: number;
+  };
   deliveryConfigured: { resend: boolean; twilio: boolean };
   cameraConfigured: boolean;
   station_settings: Record<string, unknown>;
@@ -61,6 +76,10 @@ export interface AppConfig {
   integration_status: IntegrationStatus[];
   daily_brief_send_logs: Record<string, unknown>[];
   notification_events: Record<string, unknown>[];
+}
+
+function normalizeSupabaseUrl(value: string) {
+  return value.replace(/\/rest\/v1\/?$/i, '').replace(/\/$/, '');
 }
 
 export interface Contact {
@@ -127,6 +146,15 @@ async function getSupabaseAppConfig(): Promise<AppConfig> {
 
   return {
     supabaseConfigured: Boolean(SUPABASE_URL && SUPABASE_ANON_KEY),
+    supabaseStatus: {
+      readConfigured: Boolean(SUPABASE_URL && SUPABASE_ANON_KEY),
+      writeConfigured: false,
+      urlConfigured: Boolean(SUPABASE_URL),
+      serviceRoleConfigured: false,
+      serviceRoleSegments: 0,
+      anonConfigured: Boolean(SUPABASE_ANON_KEY),
+      anonSegments: SUPABASE_ANON_KEY ? SUPABASE_ANON_KEY.split('.').length : 0,
+    },
     deliveryConfigured: {
       resend: integrationConfigured(integrations, 'Resend'),
       twilio: integrationConfigured(integrations, 'Twilio'),
