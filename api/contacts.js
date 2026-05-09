@@ -1,7 +1,11 @@
 const cfg = {
-  supabaseUrl: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL,
-  supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  supabaseUrl: envValue('SUPABASE_URL') || envValue('NEXT_PUBLIC_SUPABASE_URL') || envValue('VITE_SUPABASE_URL'),
+  supabaseServiceRoleKey: envValue('SUPABASE_SERVICE_ROLE_KEY') || envValue('SUPABASE_SERVICE_KEY') || envValue('SUPABASE_SECRET_KEY') || envValue('SUPABASE_SERVICE_ROLE'),
 };
+
+function envValue(name) {
+  return process.env[name]?.trim();
+}
 
 function configured() {
   return Boolean(cfg.supabaseUrl && cfg.supabaseServiceRoleKey);

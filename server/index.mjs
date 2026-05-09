@@ -20,8 +20,9 @@ const cfg = {
   timeZone: process.env.REPORT_TIME_ZONE || 'America/New_York',
   cameraUrl: process.env.LOREX_CAMERA_SNAPSHOT_URL || '',
   cameraName: process.env.LOREX_CAMERA_NAME || 'Cars Camera',
-  supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL,
-  supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  supabaseUrl: envValue('SUPABASE_URL') || envValue('NEXT_PUBLIC_SUPABASE_URL') || envValue('VITE_SUPABASE_URL'),
+  supabaseServiceRoleKey: envValue('SUPABASE_SERVICE_ROLE_KEY') || envValue('SUPABASE_SERVICE_KEY') || envValue('SUPABASE_SECRET_KEY') || envValue('SUPABASE_SERVICE_ROLE'),
+  supabaseAnonKey: envValue('NEXT_PUBLIC_SUPABASE_ANON_KEY') || envValue('VITE_SUPABASE_ANON_KEY') || envValue('SUPABASE_ANON_KEY'),
   resendApiKey: process.env.RESEND_API_KEY,
   resendFromEmail: process.env.RESEND_FROM_EMAIL || process.env.ALERT_EMAIL || 'hello@staleyclimate.info',
   twilioAccountSid: process.env.TWILIO_ACCOUNT_SID,
@@ -39,6 +40,10 @@ const cfg = {
     'http://127.0.0.1:5173',
   ].filter(Boolean),
 };
+
+function envValue(name) {
+  return process.env[name]?.trim();
+}
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
@@ -532,29 +537,39 @@ const defaultAppConfig = {
 };
 
 function supabaseConfigured() {
-  return Boolean(cfg.supabaseUrl && cfg.supabaseServiceRoleKey);
+  return Boolean(cfg.supabaseUrl && (cfg.supabaseServiceRoleKey || cfg.supabaseAnonKey));
 }
 
 async function supabaseRest(table, options = {}) {
-  if (!supabaseConfigured()) throw new Error('Supabase service role is not configured');
+  if (!supabaseConfigured()) throw new Error('Supabase is not configured');
+  const mutating = options.method && options.method !== 'GET';
+  const key = options.requireServiceRole || mutating ? cfg.supabaseServiceRoleKey : (cfg.supabaseServiceRoleKey || cfg.supabaseAnonKey);
+  if (!key) throw new Error('Supabase API key is not configured');
   const url = new URL(`${cfg.supabaseUrl}/rest/v1/${table}`);
   Object.entries(options.query || {}).forEach(([key, value]) => url.searchParams.set(key, String(value)));
-  const response = await fetch(url, {
-    method: options.method || 'GET',
-    headers: {
-      apikey: cfg.supabaseServiceRoleKey,
-      Authorization: `Bearer ${cfg.supabaseServiceRoleKey}`,
-      'Content-Type': 'application/json',
-      Prefer: options.prefer || 'return=representation',
-    },
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
+  let response = await fetchSupabase(url, key, options);
+  if (!response.ok && !mutating && cfg.supabaseServiceRoleKey && cfg.supabaseAnonKey) {
+    response = await fetchSupabase(url, cfg.supabaseAnonKey, options);
+  }
   if (!response.ok) {
     const message = await response.text().catch(() => response.statusText);
     throw new Error(message || response.statusText);
   }
   if (response.status === 204) return null;
   return response.json().catch(() => null);
+}
+
+function fetchSupabase(url, key, options = {}) {
+  return fetch(url, {
+    method: options.method || 'GET',
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      'Content-Type': 'application/json',
+      Prefer: options.prefer || 'return=representation',
+    },
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  });
 }
 
 async function safeSelect(table, fallback, query = {}) {

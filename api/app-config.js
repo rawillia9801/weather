@@ -5,8 +5,9 @@ const cfg = {
   latitude: Number(process.env.LATITUDE || process.env.STATION_LAT || 36.8348),
   longitude: Number(process.env.LONGITUDE || process.env.STATION_LON || -81.5148),
   timeZone: process.env.REPORT_TIME_ZONE || process.env.TZ || 'America/New_York',
-  supabaseUrl: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL,
-  supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  supabaseUrl: envValue('SUPABASE_URL') || envValue('NEXT_PUBLIC_SUPABASE_URL') || envValue('VITE_SUPABASE_URL'),
+  supabaseServiceRoleKey: envValue('SUPABASE_SERVICE_ROLE_KEY') || envValue('SUPABASE_SERVICE_KEY') || envValue('SUPABASE_SECRET_KEY') || envValue('SUPABASE_SERVICE_ROLE'),
+  supabaseAnonKey: envValue('NEXT_PUBLIC_SUPABASE_ANON_KEY') || envValue('VITE_SUPABASE_ANON_KEY') || envValue('SUPABASE_ANON_KEY'),
   weatherKey: process.env.WEATHER_API_KEY,
   cameraUrl: process.env.LOREX_CAMERA_SNAPSHOT_URL || process.env.STATION_CAMERA_SNAPSHOT_URL || process.env.STATION_CAMERA_URL || '',
   resendApiKey: process.env.RESEND_API_KEY,
@@ -17,6 +18,10 @@ const cfg = {
   twilioFromNumber: process.env.TWILIO_FROM_NUMBER,
   twilioMessagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID,
 };
+
+function envValue(name) {
+  return process.env[name]?.trim();
+}
 
 const fallback = {
   station_settings: {
@@ -74,22 +79,31 @@ const fallback = {
 };
 
 function configured() {
-  return Boolean(cfg.supabaseUrl && cfg.supabaseServiceRoleKey);
+  return Boolean(cfg.supabaseUrl && (cfg.supabaseServiceRoleKey || cfg.supabaseAnonKey));
 }
 
 async function supabaseRest(table, query = {}) {
   if (!configured()) return [];
   const url = new URL(`${cfg.supabaseUrl}/rest/v1/${table}`);
   Object.entries(query).forEach(([key, value]) => url.searchParams.set(key, String(value)));
-  const response = await fetch(url, {
+  const response = await fetchSupabase(url, cfg.supabaseServiceRoleKey || cfg.supabaseAnonKey);
+  if (!response.ok && cfg.supabaseServiceRoleKey && cfg.supabaseAnonKey) {
+    const anonResponse = await fetchSupabase(url, cfg.supabaseAnonKey);
+    if (!anonResponse.ok) return [];
+    return anonResponse.json().catch(() => []);
+  }
+  if (!response.ok) return [];
+  return response.json().catch(() => []);
+}
+
+function fetchSupabase(url, key) {
+  return fetch(url, {
     headers: {
-      apikey: cfg.supabaseServiceRoleKey,
-      Authorization: `Bearer ${cfg.supabaseServiceRoleKey}`,
+      apikey: key,
+      Authorization: `Bearer ${key}`,
       Accept: 'application/json',
     },
   });
-  if (!response.ok) return [];
-  return response.json().catch(() => []);
 }
 
 function first(rows, fallbackValue) {
