@@ -105,11 +105,12 @@ async function loadWeather(req) {
 }
 
 export async function loadBriefInputs(req) {
-  const [weather, contacts, schedules, logs] = await Promise.all([
+  const [weather, contacts, schedules, logs, localEvents] = await Promise.all([
     loadWeather(req).catch(async () => fetchJson(`${absoluteBaseUrl(req)}/api/weather`)),
     safeSelect('contacts', []),
     safeSelect('daily_brief_schedules', []),
     safeSelect('daily_brief_send_logs', [], { select: '*', order: 'created_at.desc', limit: 20 }),
+    safeSelect('local_event_cache', [], { select: '*', order: 'starts_at.asc', limit: 8 }),
   ]);
   const schedule = schedules[0] || {
     enabled: false,
@@ -118,10 +119,10 @@ export async function loadBriefInputs(req) {
     email_enabled: true,
     sms_enabled: false,
   };
-  return { weather, contacts, schedule, logs };
+  return { weather, contacts, schedule, logs, localEvents };
 }
 
-export function buildDailyBriefData(weatherData, schedule = {}) {
+export function buildDailyBriefData(weatherData, schedule = {}, localEvents = []) {
   const current = weatherData.current;
   const firstForecast = weatherData.forecast?.[0] || {};
   const generatedAt = new Date().toISOString();
@@ -144,7 +145,7 @@ export function buildDailyBriefData(weatherData, schedule = {}) {
     low: firstForecast.low ?? current.low,
     highTimeSummary: ' around the warmest afternoon window',
     precipTimingSummary: precipitationTimingSummary(weatherData),
-    localEventsText: 'No local events are configured for today.',
+    localEventsText: formatLocalEvents(localEvents, generatedAt),
     skyEventsText: weatherData.moon?.skyEvent || 'No major sky events are configured for the next few days.',
     comfortSummary: generateComfortSummary(weatherData),
     groundCondition: estimateGroundConditions(weatherData),
@@ -187,6 +188,29 @@ export function briefSubject(data) {
 function greetingFor(contact) {
   const name = String(contact?.display_name || '').trim();
   return name ? `Good Morning, ${name} — here’s your daily weather brief.` : "Good Morning — here’s your daily weather brief.";
+}
+
+function formatLocalEvents(events = [], generatedAt = new Date().toISOString()) {
+  const now = new Date(generatedAt);
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
+  const endOfToday = new Date(startOfToday);
+  endOfToday.setDate(endOfToday.getDate() + 1);
+  const nextSeven = new Date(startOfToday);
+  nextSeven.setDate(nextSeven.getDate() + 7);
+  const upcoming = events
+    .map((event) => ({ ...event, startsAt: event.starts_at ? new Date(event.starts_at) : null }))
+    .filter((event) => event.startsAt && !Number.isNaN(event.startsAt.getTime()) && event.startsAt >= startOfToday && event.startsAt < nextSeven)
+    .slice(0, 3);
+  if (!upcoming.length) return 'No local events are configured for today.';
+  return upcoming.map((event) => {
+    const isToday = event.startsAt < endOfToday;
+    const when = isToday ? 'Today' : event.startsAt.toLocaleDateString('en-US', { timeZone: cfg.timeZone, weekday: 'short', month: 'short', day: 'numeric' });
+    const timeText = event.startsAt.toLocaleTimeString('en-US', { timeZone: cfg.timeZone, hour: 'numeric', minute: '2-digit' });
+    const venue = event.venue ? ` at ${event.venue}` : '';
+    const source = event.source_name ? ` Source: ${event.source_name}.` : '';
+    return `${when}: ${event.title}${venue} at ${timeText}.${source}`;
+  }).join('\n');
 }
 
 function precipitationTimingSummary(data) {

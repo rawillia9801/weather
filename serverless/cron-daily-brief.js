@@ -3,12 +3,12 @@ import { cfg } from './_env.js';
 
 export default async function handler(req, res) {
   try {
-    const { weather, contacts, schedule } = await loadBriefInputs(req);
+    const { weather, contacts, schedule, localEvents } = await loadBriefInputs(req);
     if (!schedule.enabled || !schedule.email_enabled) {
       return res.status(200).json({ ok: true, skipped: true, reason: 'Daily brief email schedule is disabled' });
     }
 
-    const data = buildDailyBriefData(weather, schedule);
+    const data = buildDailyBriefData(weather, schedule, localEvents);
     const subject = schedule.subject_template
       ? String(schedule.subject_template).replace('{{date}}', new Date(data.generatedAt).toLocaleDateString('en-US', { timeZone: schedule.timezone || cfg.timeZone }))
       : `Staley Street Weather Daily Brief - Marion, VA - ${new Date(data.generatedAt).toLocaleDateString('en-US', { timeZone: schedule.timezone || cfg.timeZone })}`;

@@ -19,8 +19,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { weather, contacts, schedule } = await loadBriefInputs(req);
-    const data = buildDailyBriefData(weather, schedule);
+    const { weather, contacts, schedule, localEvents } = await loadBriefInputs(req);
+    const data = buildDailyBriefData(weather, schedule, localEvents);
     const body = parseBody(req);
     const subject = body.subject || (schedule.subject_template
       ? String(schedule.subject_template).replace('{{date}}', new Date(data.generatedAt).toLocaleDateString('en-US', { timeZone: schedule.timezone || cfg.timeZone }))
