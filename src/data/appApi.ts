@@ -96,6 +96,7 @@ export interface Contact {
 export interface IntegrationStatus {
   integration_name: string;
   configured: boolean;
+  status_label?: string | null;
   last_success_at?: string | null;
   last_error_at?: string | null;
   last_error_message?: string | null;
@@ -189,19 +190,25 @@ function mergeIntegrationStatus(rows: IntegrationStatus[]) {
   const names = ['Weather Underground PWS', 'Forecast source', 'UV source', 'AQI source', 'Radar source', 'Camera source', 'Supabase', 'Resend', 'Twilio'];
   return names.map((name) => {
     const fallbackConfigured = name === 'Forecast source' || name === 'UV source' || name === 'AQI source' || name === 'Radar source' || (name === 'Supabase' && Boolean(SUPABASE_URL && SUPABASE_ANON_KEY));
-    const fallbackLabel =
+    const statusLabel =
+      name === 'UV source' ? 'Fallback active' :
+      name === 'AQI source' ? 'Fallback active' :
+      name === 'Radar source' ? 'Fallback active' :
+      null;
+    const fallbackMessage =
       name === 'UV source' ? 'Open-Meteo UV fallback active' :
       name === 'AQI source' ? 'Open-Meteo Air Quality fallback active' :
       name === 'Radar source' ? 'NOAA/NWS radar context active' :
       null;
     const row = rows.find((item) => item.integration_name === name);
-    if (row) return { ...row, configured: Boolean(row.configured || fallbackConfigured), last_error_message: row.last_error_message || fallbackLabel };
+    if (row) return { ...row, configured: Boolean(row.configured || fallbackConfigured), status_label: row.status_label || (row.last_error_message ? 'Configured but failing' : statusLabel), last_error_message: row.last_error_message || fallbackMessage };
     return {
     integration_name: name,
     configured: fallbackConfigured,
+    status_label: statusLabel || (fallbackConfigured ? 'Configured' : 'Not configured'),
     last_success_at: null,
     last_error_at: null,
-    last_error_message: fallbackLabel,
+    last_error_message: fallbackMessage,
     };
   });
 }

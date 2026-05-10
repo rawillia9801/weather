@@ -681,7 +681,7 @@ function MapsPage({ data, config }: { data: WeatherStationData; config: AppConfi
           Add map provider settings in Supabase to enable live radar, alert, rain, wind, temperature, and nearby-place layers. Current radar on the dashboard is labeled as a visual panel, not a live map layer.
         </Unavailable>
       </div>
-      <IntegrationGrid rows={config?.integration_status || []} />
+      <IntegrationGrid rows={config?.integration_status || []} dataSource={data.dataSource} />
     </section>
   );
 }
@@ -796,7 +796,7 @@ function SettingsPage({ data, config, reload }: { data: WeatherStationData; conf
           <SettingsRows rows={Object.entries(config?.alert_thresholds || {}).map(([key, value]) => [key.replace(/_/g, ' '), String(value)])} />
         </GlassCard>
       </div>
-      <IntegrationGrid rows={config?.integration_status || []} />
+      <IntegrationGrid rows={config?.integration_status || []} dataSource={data.dataSource} />
     </section>
   );
 }
@@ -878,16 +878,47 @@ function EventList({ rows, empty }: { rows: Record<string, unknown>[]; empty: st
   return <div className="event-list">{rows.map((row, index) => <pre key={String(row.id || index)}>{JSON.stringify(row, null, 2)}</pre>)}</div>;
 }
 
-function IntegrationGrid({ rows }: { rows: { integration_name: string; configured: boolean; last_error_message?: string | null }[] }) {
+function sourceStatusLabel(row: { integration_name: string; configured: boolean; status_label?: string | null; last_error_message?: string | null }, dataSource?: WeatherStationData['dataSource']) {
+  if (row.integration_name === 'Weather Underground PWS' && row.configured) {
+    const error = dataSource?.errors?.find((entry) => entry.source.includes('Weather Underground'));
+    return error ? 'Configured but failing' : 'Configured';
+  }
+  if (row.integration_name === 'Forecast source') {
+    if (dataSource?.forecast?.includes('fallback') || dataSource?.forecast === 'NWS') return 'Fallback active';
+    return row.configured ? 'Configured' : 'Not configured';
+  }
+  if (row.integration_name === 'UV source' && dataSource?.uv?.includes('Open-Meteo')) return 'Fallback active';
+  if (row.integration_name === 'AQI source' && dataSource?.aqi?.includes('Open-Meteo')) return 'Fallback active';
+  if (row.integration_name === 'Radar source' && dataSource?.radar?.includes('NOAA/NWS')) return 'Fallback active';
+  if (row.last_error_message) return row.configured ? 'Configured but failing' : 'Not configured';
+  return row.status_label || (row.configured ? 'Configured' : 'Not configured');
+}
+
+function sourceDetail(row: { integration_name: string; configured: boolean; last_error_message?: string | null }, dataSource?: WeatherStationData['dataSource']) {
+  if (row.integration_name === 'Weather Underground PWS') {
+    return dataSource?.errors?.find((entry) => entry.source.includes('Weather Underground'))?.message || row.last_error_message;
+  }
+  if (row.integration_name === 'Forecast source') return dataSource?.forecast || row.last_error_message;
+  if (row.integration_name === 'UV source') return dataSource?.uv || row.last_error_message;
+  if (row.integration_name === 'AQI source') return dataSource?.aqi || row.last_error_message;
+  if (row.integration_name === 'Radar source') return dataSource?.radar || row.last_error_message;
+  return row.last_error_message;
+}
+
+function IntegrationGrid({ rows, dataSource }: { rows: { integration_name: string; configured: boolean; status_label?: string | null; last_error_message?: string | null }[]; dataSource?: WeatherStationData['dataSource'] }) {
   return (
     <div className="page-grid three">
-      {rows.map((row) => (
-        <GlassCard key={row.integration_name} className="page-card integration-card">
-          <span>{row.integration_name}</span>
-          <strong className={row.configured ? 'ok' : 'missing'}>{row.configured ? 'Configured' : 'Not configured'}</strong>
-          {row.last_error_message && <small>{row.last_error_message}</small>}
-        </GlassCard>
-      ))}
+      {rows.map((row) => {
+        const label = sourceStatusLabel(row, dataSource);
+        const detail = sourceDetail(row, dataSource);
+        return (
+          <GlassCard key={row.integration_name} className="page-card integration-card">
+            <span>{row.integration_name}</span>
+            <strong className={label === 'Not configured' ? 'missing' : 'ok'}>{label}</strong>
+            {detail && <small>{detail}</small>}
+          </GlassCard>
+        );
+      })}
     </div>
   );
 }

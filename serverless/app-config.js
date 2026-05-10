@@ -155,17 +155,24 @@ function integrationStatus(rows) {
       name === 'AQI source' ? 'Open-Meteo Air Quality fallback active' :
       name === 'Radar source' ? 'NOAA/NWS radar context active' :
       null;
+    const statusLabel =
+      fallbackLabel ? 'Fallback active' :
+      fallbackConfigured ? 'Configured' :
+      'Not configured';
     const row = existing.get(name);
     if (row) {
+      const rowFailing = Boolean(row.last_error_message || row.last_error_at);
       return {
         ...row,
         configured: Boolean(row.configured || fallbackConfigured),
+        status_label: row.status_label || (rowFailing ? 'Configured but failing' : statusLabel),
         last_error_message: row.last_error_message || fallbackLabel,
       };
     }
     return {
       integration_name: name,
       configured: fallbackConfigured,
+      status_label: statusLabel,
       last_success_at: null,
       last_error_at: null,
       last_error_message: fallbackLabel,
