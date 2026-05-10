@@ -9,7 +9,7 @@ export default async function handler(req, res) {
     const subject = schedule.subject_template
       ? String(schedule.subject_template).replace('{{date}}', new Date(data.generatedAt).toLocaleDateString('en-US', { timeZone: schedule.timezone || cfg.timeZone }))
       : briefSubject(data);
-    const previewContact = contacts.find((contact) => contact.email_enabled || contact.sms_enabled) || contacts[0];
+    const previewContact = contacts.find((contact) => contact.email_enabled || contact.sms_enabled) || contacts[0] || { display_name: 'Cristy' };
     const templates = await safeSelect('daily_brief_templates', [], { select: '*', channel: 'eq.email_text', is_active: 'eq.true', limit: 1 });
     const template = templates[0]?.template_body || DEFAULT_TEXT_TEMPLATE;
     const text = renderTemplateText(template, data, previewContact);

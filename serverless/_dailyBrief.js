@@ -175,7 +175,7 @@ export function briefSubject(data) {
 
 function greetingFor(contact) {
   const name = String(contact?.display_name || '').trim();
-  return name ? `Good Morning, ${name} - here's your daily weather brief.` : "Good Morning - here's your daily weather brief.";
+  return name ? `Good Morning, ${name} — here’s your daily weather brief.` : "Good Morning — here’s your daily weather brief.";
 }
 
 export function renderDailyBriefText(data, contact) {
@@ -244,8 +244,8 @@ export function renderDailyBriefHtml(data, contact) {
 export function renderDailyBriefSms(data, contact) {
   const alertText = data.alerts.length ? data.alerts[0].title : 'No active alerts';
   const aqiText = data.airQuality?.aqi == null ? 'AQI unavailable' : `AQI ${data.airQuality.aqi}`;
-  const name = contact?.display_name ? `${contact.display_name}: ` : '';
-  return `${name}Staley Street Weather: ${data.current.temperature}F, ${data.current.condition}, feels ${data.current.feelsLike}. High/Low ${data.high}/${data.low}. Wind ${data.current.windSpeed}/${data.current.windGust} mph. Rain ${data.forecast[0]?.precipitationChance ?? 0}% / ${Number(data.forecast[0]?.precipitationAmount || 0).toFixed(2)} in. ${aqiText}. UV ${data.current.uvIndex}. Alerts: ${alertText}.`;
+  const opening = contact?.display_name ? `Good Morning, ${contact.display_name}: ` : 'Good Morning: ';
+  return `${opening}Staley Street Weather: ${data.current.temperature}F, ${data.current.condition}, feels ${data.current.feelsLike}. High/Low ${data.high}/${data.low}. Wind ${data.current.windSpeed}/${data.current.windGust} mph. Rain ${data.forecast[0]?.precipitationChance ?? 0}% / ${Number(data.forecast[0]?.precipitationAmount || 0).toFixed(2)} in. ${aqiText}. UV ${data.current.uvIndex}. Alerts: ${alertText}.`;
 }
 
 function escapeHtml(value) {

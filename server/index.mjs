@@ -1037,7 +1037,7 @@ Station is {{stationStatus.label}} with data quality {{stationStatus.dataQuality
 
 function greetingFor(contact) {
   const name = String(contact?.display_name || '').trim();
-  return name ? `Good Morning, ${name} - here's your daily weather brief.` : "Good Morning - here's your daily weather brief.";
+  return name ? `Good Morning, ${name} — here’s your daily weather brief.` : "Good Morning — here’s your daily weather brief.";
 }
 
 function renderDailyBriefText(data, contact) {
@@ -1052,10 +1052,11 @@ function renderDailyBriefHtml(data) {
   return `<!doctype html><html><body style="margin:0;background:#06111e;color:#f8fafc;font-family:Arial,sans-serif"><main style="max-width:720px;margin:auto;padding:24px"><h1 style="color:#67e8f9">Staley Street Weather Daily Brief</h1><section style="background:#0b1f33;border:1px solid #0ea5e9;border-radius:14px;padding:18px">${text}</section></main></body></html>`;
 }
 
-function renderDailyBriefSms(data) {
+function renderDailyBriefSms(data, contact) {
   const alertText = data.alerts.length ? data.alerts[0].title : 'No active alerts';
   const aqiText = data.airQuality.aqi == null ? 'AQI unavailable' : `AQI ${data.airQuality.aqi}`;
-  return `Staley Street Weather Daily Brief: ${data.current.temperature}F, ${data.current.condition}, feels like ${data.current.feelsLike}. High/Low ${data.high}/${data.low}. Wind ${data.current.windSpeed}/${data.current.windGust} mph. Rain today ${data.rainToday}. ${aqiText}. UV ${data.current.uvIndex}. Alerts: ${alertText}.`;
+  const opening = contact?.display_name ? `Good Morning, ${contact.display_name}: ` : 'Good Morning: ';
+  return `${opening}Staley Street Weather Daily Brief: ${data.current.temperature}F, ${data.current.condition}, feels like ${data.current.feelsLike}. High/Low ${data.high}/${data.low}. Wind ${data.current.windSpeed}/${data.current.windGust} mph. Rain today ${data.rainToday}. ${aqiText}. UV ${data.current.uvIndex}. Alerts: ${alertText}.`;
 }
 
 function escapeHtml(value) {
@@ -1374,14 +1375,14 @@ app.get('/api/daily-brief/preview', async (_req, res) => {
     const [weather, config] = await Promise.all([loadWeatherUndergroundStation(), loadAppConfig()]);
     const data = buildDailyBriefData(weather, config.station_settings);
     const subject = `Staley Street Weather Daily Brief - Marion, VA - ${new Date(data.generatedAt).toLocaleDateString('en-US', { timeZone: config.station_settings.timezone || cfg.timeZone })}`;
-    const previewContact = (config.contacts || []).find((contact) => contact.email_enabled || contact.sms_enabled) || (config.contacts || [])[0];
+    const previewContact = (config.contacts || []).find((contact) => contact.email_enabled || contact.sms_enabled) || (config.contacts || [])[0] || { display_name: 'Cristy' };
     res.json({
       subject,
       generatedAt: data.generatedAt,
       data,
       text: renderDailyBriefText(data, previewContact),
       html: renderDailyBriefHtml(data),
-      sms: renderDailyBriefSms(data),
+      sms: renderDailyBriefSms(data, previewContact),
       deliveryConfigured: config.deliveryConfigured,
       contacts: config.contacts,
       logs: config.daily_brief_send_logs,
@@ -1401,7 +1402,7 @@ app.post('/api/daily-brief/send', async (req, res) => {
     const emailResults = [];
     const smsResults = [];
     for (const contact of contacts) {
-      const payload = { stationId: data.stationId, stationName: data.stationName, location: data.location, generatedAt: data.generatedAt, subject, html: renderDailyBriefHtml(data), text: renderDailyBriefText(data, contact), sms: renderDailyBriefSms(data), data };
+      const payload = { stationId: data.stationId, stationName: data.stationName, location: data.location, generatedAt: data.generatedAt, subject, html: renderDailyBriefHtml(data), text: renderDailyBriefText(data, contact), sms: renderDailyBriefSms(data, contact), data };
       if (contact.email_enabled && contact.email) emailResults.push(await sendEmail(contact, payload));
       if (contact.sms_enabled && contact.phone_e164) smsResults.push(await sendSms(contact, payload));
     }
