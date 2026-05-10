@@ -15,7 +15,10 @@ import weatherDebug from '../serverless/weather-debug.js';
 
 function pathFromRequest(req) {
   const host = req.headers.host || 'localhost';
-  return new URL(req.url || '/api', `https://${host}`).pathname.replace(/\/+$/, '') || '/api';
+  const url = new URL(req.url || '/api', `https://${host}`);
+  const rewrittenPath = url.searchParams.get('path');
+  const pathname = rewrittenPath ? `/api/${rewrittenPath.replace(/^\/+/, '')}` : url.pathname;
+  return pathname.replace(/\/+$/, '') || '/api';
 }
 
 function withQuery(req, query) {
