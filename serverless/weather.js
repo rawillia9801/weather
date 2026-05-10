@@ -71,6 +71,12 @@ function sumNumbers(values = []) {
   return Number(values.reduce((sum, value) => sum + n(value, 0), 0).toFixed(2));
 }
 
+function sumNullableNumbers(values = []) {
+  const finite = values.map(maybeNumber).filter((value) => value !== null);
+  if (!finite.length) return null;
+  return Number(finite.reduce((sum, value) => sum + value, 0).toFixed(2));
+}
+
 function sourceError(source, error) {
   return { source, message: cleanProviderReason(error) };
 }
@@ -424,17 +430,17 @@ function buildPrecipitation(current, forecast = [], hasPws = false) {
   const todaySourceValue = maybeNumber(current.precipToday);
   const todayForecastValue = maybeNumber(forecast[0]?.precipitationAmount);
   const today = todaySourceValue ?? todayForecastValue;
-  const week = forecast.length ? sumNumbers(forecast.map((day) => day.precipitationAmount)) : null;
+  const week = forecast.length ? sumNullableNumbers(forecast.map((day) => day.precipitationAmount)) : null;
   return {
     today,
     week,
     month: null,
     year: null,
-    todayLabel: hasPws ? 'Today station' : 'Today forecast',
-    weekLabel: '7-day forecast',
-    monthLabel: 'History unavailable',
-    yearLabel: 'History unavailable',
-    source: hasPws ? 'Weather Underground PWS + forecast' : 'Forecast fallback',
+    todayLabel: today == null ? 'Today unavailable' : hasPws ? 'Today actual' : 'Today forecast',
+    weekLabel: week == null ? 'Week unavailable' : 'Week forecast',
+    monthLabel: 'Month unavailable',
+    yearLabel: 'Year unavailable',
+    source: hasPws ? 'Weather Underground PWS actual + forecast' : 'Forecast fallback',
   };
 }
 
