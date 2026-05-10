@@ -2,6 +2,56 @@ import { cfg } from './_env.js';
 import { logDelivery, safeSelect } from './_supabase.js';
 import weatherHandler from './weather.js';
 
+export const DEFAULT_TEXT_TEMPLATE = `Live personal weather station
+Staley Street Weather Daily Brief
+
+{{greeting}}
+
+Right now in {{location}}, it is {{current.temperature}}F and {{current.condition}}, with a feels-like temperature of {{current.feelsLike}}F.
+
+Station {{stationId}}
+Updated {{updatedTime}}
+Source: {{source}}
+
+Today should reach about {{high}}F with a low near {{low}}F. Winds are {{current.windDirection}} at {{current.windSpeed}} mph with gusts near {{current.windGust}} mph.
+
+Rain chances today are {{today.precipChance}}%, with an estimated total of {{today.precipAmount}} inches.
+
+Air Quality
+{{airQuality.summary}}
+
+UV
+Current {{current.uvIndex}}{{uvPeakSummary}}
+
+Comfort Dashboard
+Humidity {{current.humidity}}%
+Pressure {{current.pressure}} inHg
+{{comfortSummary}}
+
+Five-Day Outlook
+
+{{forecastText}}
+
+Rain And Ground Conditions
+Rain today: {{rainToday}}. Ground estimate: {{groundCondition.label}}. {{groundCondition.summary}}
+
+Hungry Mother State Park Water Conditions
+{{waterCondition.waterTemp}}
+{{waterCondition.measuredOrEstimatedNote}}
+Surface: {{waterCondition.surface}}. Rain/clarity: {{waterCondition.clarityNote}}
+
+Sun And Moon
+Sunrise {{sunMoon.sunrise}}
+Sunset {{sunMoon.sunset}}
+Moon {{moon.phase}} {{moon.illumination}}%
+{{moon.skyEvent}}
+
+Alerts And Notes
+{{alertsText}}
+
+Station Status
+Station is {{stationStatus.label}} with data quality {{stationStatus.dataQuality}}.`;
+
 function absoluteBaseUrl(req) {
   const proto = req.headers['x-forwarded-proto'] || 'https';
   const host = req.headers['x-forwarded-host'] || req.headers.host || new URL(process.env.SITE_URL || 'https://www.staleyclimate.info').host;
@@ -129,10 +179,60 @@ function greetingFor(contact) {
 }
 
 export function renderDailyBriefText(data, contact) {
+  return renderTemplateText(DEFAULT_TEXT_TEMPLATE, data, contact);
+}
+
+export function renderTemplateText(template, data, contact) {
   const alerts = data.alerts.length ? data.alerts.map((alert) => `- ${alert.title}`).join('\n') : 'No active alerts at generation time.';
   const outlook = data.forecast.map((day) => `${day.day}\n${day.condition}\nHigh ${day.high} | Low ${day.low} | Rain ${day.precipitationChance}% | Amt ${Number(day.precipitationAmount || 0).toFixed(2)} in`).join('\n\n');
   const aqiText = data.airQuality?.aqi == null ? 'Unavailable - AQI source is not configured' : `${data.airQuality.aqi} ${data.airQuality.label}`;
-  return `Live personal weather station\nStaley Street Weather Daily Brief\n\n${greetingFor(contact)}\n\nRight now in ${data.location}, it is ${data.current.temperature}F and ${data.current.condition}, with a feels-like temperature of ${data.current.feelsLike}F.\n\nStation ${data.stationId}\nUpdated ${data.updatedTime}\nSource: ${data.source}\n\nToday should reach about ${data.high}F with a low near ${data.low}F. Winds are ${data.current.windDirection} at ${data.current.windSpeed} mph with gusts near ${data.current.windGust} mph.\n\nRain chances today are ${data.forecast[0]?.precipitationChance ?? 0}%, with an estimated total of ${Number(data.forecast[0]?.precipitationAmount || 0).toFixed(2)} inches.\n\nAir Quality\n${aqiText}\n\nUV\nCurrent ${data.current.uvIndex}${data.current.uvPeak ? `, peak near ${data.current.uvPeak}${data.current.uvPeakTime ? ` around ${data.current.uvPeakTime}` : ''}` : ''}\n\nComfort Dashboard\nHumidity ${data.current.humidity}%\nPressure ${data.current.pressure} inHg\n${data.comfortSummary}\n\nFive-Day Outlook\n\n${outlook}\n\nRain And Ground Conditions\nRain today: ${data.rainToday}. Ground estimate: ${data.groundCondition.label}. ${data.groundCondition.summary}\n\nHungry Mother State Park Water Conditions\n${data.waterCondition.waterTemp}\n${data.waterCondition.measuredOrEstimatedNote}\nSurface: ${data.waterCondition.surface}. Rain/clarity: ${data.waterCondition.clarityNote}\n\nSun And Moon\nSunrise ${data.sunMoon.sunrise}\nSunset ${data.sunMoon.sunset}\nMoon ${data.moon.phase} ${data.moon.illumination}%\n${data.moon.skyEvent || ''}\n\nAlerts And Notes\n${alerts}\n\nStation Status\nStation is ${data.stationStatus.online ? 'online' : 'offline'} with data quality ${data.stationStatus.dataQuality}.`;
+  const replacements = {
+    greeting: greetingFor(contact),
+    location: data.location,
+    stationId: data.stationId,
+    updatedTime: data.updatedTime,
+    source: data.source,
+    high: data.high,
+    low: data.low,
+    rainToday: data.rainToday,
+    comfortSummary: data.comfortSummary,
+    forecastText: outlook,
+    alertsText: alerts,
+    uvPeakSummary: data.current.uvPeak ? `, peak near ${data.current.uvPeak}${data.current.uvPeakTime ? ` around ${data.current.uvPeakTime}` : ''}` : '',
+    'current.temperature': data.current.temperature,
+    'current.condition': data.current.condition,
+    'current.feelsLike': data.current.feelsLike,
+    'current.windDirection': data.current.windDirection,
+    'current.windSpeed': data.current.windSpeed,
+    'current.windGust': data.current.windGust,
+    'current.uvIndex': data.current.uvIndex,
+    'current.humidity': data.current.humidity,
+    'current.pressure': data.current.pressure,
+    'today.precipChance': data.forecast[0]?.precipitationChance ?? 0,
+    'today.precipAmount': Number(data.forecast[0]?.precipitationAmount || 0).toFixed(2),
+    'airQuality.summary': aqiText,
+    'groundCondition.label': data.groundCondition.label,
+    'groundCondition.summary': data.groundCondition.summary,
+    'waterCondition.waterTemp': data.waterCondition.waterTemp,
+    'waterCondition.measuredOrEstimatedNote': data.waterCondition.measuredOrEstimatedNote,
+    'waterCondition.surface': data.waterCondition.surface,
+    'waterCondition.clarityNote': data.waterCondition.clarityNote,
+    'sunMoon.sunrise': data.sunMoon.sunrise,
+    'sunMoon.sunset': data.sunMoon.sunset,
+    'moon.phase': data.moon.phase,
+    'moon.illumination': data.moon.illumination,
+    'moon.skyEvent': data.moon.skyEvent || '',
+    'stationStatus.label': data.stationStatus.online ? 'online' : 'using public fallback',
+    'stationStatus.dataQuality': data.stationStatus.dataQuality,
+  };
+  return String(template || DEFAULT_TEXT_TEMPLATE).replace(/\{\{([^}]+)\}\}/g, (_, key) => {
+    const value = replacements[String(key).trim()];
+    return value == null ? '' : String(value);
+  });
+}
+
+export function renderTextAsHtml(text, subject = 'Staley Street Weather Daily Brief') {
+  return `<!doctype html><html><body style="margin:0;background:#06111e;color:#f8fafc;font-family:Arial,sans-serif"><main style="max-width:760px;margin:auto;padding:24px"><h1 style="color:#67e8f9;margin:0 0 16px">${escapeHtml(subject)}</h1><section style="background:#0b1f33;border:1px solid #0ea5e9;border-radius:14px;padding:18px;white-space:pre-wrap;line-height:1.55">${escapeHtml(text)}</section></main></body></html>`;
 }
 
 export function renderDailyBriefHtml(data, contact) {

@@ -3,7 +3,7 @@ import { BrowserRouter, Navigate, NavLink, Route, Routes, useNavigate } from 're
 import { AlertTriangle, Camera, CloudLightning, Copy, Download, LockKeyhole, Mail, MapPin, MessageSquare, Plus, RefreshCw, Save, Send, Trash2 } from 'lucide-react';
 import { Bar, CartesianGrid, ComposedChart, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { fetchWeatherStationData } from './data/weatherStationApi';
-import { apiGet, apiSend, type AppConfig, type Contact, type DailyBriefPreview } from './data/appApi';
+import { apiGet, apiSend, type AppConfig, type Contact, type DailyBriefPreview, type DailyBriefTemplate } from './data/appApi';
 import type { WeatherCondition, WeatherStationData } from './types/weather';
 import { allConditions, getConditionTheme } from './lib/weatherThemes';
 import { Sidebar } from './components/layout/Sidebar';
@@ -574,12 +574,22 @@ function AlarmsPage({ data, config }: { data: WeatherStationData; config: AppCon
 
 function ReportsPage({ data, config, reloadConfig }: { data: WeatherStationData; config: AppConfig | null; reloadConfig: () => Promise<void> }) {
   const [brief, setBrief] = useState<DailyBriefPreview | null>(null);
+  const [template, setTemplate] = useState('');
+  const [defaultTemplate, setDefaultTemplate] = useState('');
+  const [templateWritable, setTemplateWritable] = useState(false);
   const [status, setStatus] = useState('');
   const [sending, setSending] = useState(false);
 
   async function refreshBrief() {
     setStatus('');
-    setBrief(await apiGet<DailyBriefPreview>('/api/daily-brief/preview'));
+    const [preview, templateResponse] = await Promise.all([
+      apiGet<DailyBriefPreview>('/api/daily-brief/preview'),
+      apiGet<DailyBriefTemplate>('/api/daily-brief/template'),
+    ]);
+    setBrief(preview);
+    setTemplate(templateResponse.template.template_body || preview.template || preview.text || '');
+    setDefaultTemplate(templateResponse.defaultTemplate || preview.template || '');
+    setTemplateWritable(Boolean(templateResponse.writable));
   }
 
   useEffect(() => { refreshBrief().catch((error) => setStatus(error.message)); }, []);
@@ -597,6 +607,24 @@ function ReportsPage({ data, config, reloadConfig }: { data: WeatherStationData;
     } finally {
       setSending(false);
     }
+  }
+
+  async function saveTemplate() {
+    try {
+      setStatus('');
+      const result = await apiSend<DailyBriefTemplate>('/api/daily-brief/template', 'POST', { template_body: template });
+      setTemplate(result.template.template_body);
+      setTemplateWritable(Boolean(result.writable));
+      setStatus('Daily brief template saved to Supabase.');
+      await refreshBrief();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Unable to save template');
+    }
+  }
+
+  function resetTemplate() {
+    setTemplate(defaultTemplate || brief?.template || brief?.text || '');
+    setStatus(templateWritable ? 'Template reset to default. Save to persist it.' : 'Template reset for preview only; Supabase writes are blocked.');
   }
 
   const contacts = config?.contacts || [];
@@ -619,7 +647,10 @@ function ReportsPage({ data, config, reloadConfig }: { data: WeatherStationData;
           </div>
           <div className="button-row">
             <button onClick={refreshBrief} type="button"><RefreshCw className="h-4 w-4" /> Refresh Brief</button>
+            <button onClick={saveTemplate} disabled={!template.trim()} type="button"><Save className="h-4 w-4" /> Save</button>
+            <button onClick={resetTemplate} disabled={!defaultTemplate && !brief} type="button">Reset to Default</button>
             <button onClick={() => navigator.clipboard.writeText(brief?.text || '')} disabled={!brief} type="button"><Copy className="h-4 w-4" /> Copy Text</button>
+            <button onClick={() => navigator.clipboard.writeText(brief?.html || '')} disabled={!brief} type="button"><Copy className="h-4 w-4" /> Copy HTML</button>
             <DownloadButton filename="staley-daily-brief.txt" content={brief?.text || ''} label="TXT" />
             <DownloadButton filename="staley-daily-brief.html" content={brief?.html || ''} label="HTML" />
             <button onClick={sendNow} disabled={sending || (!canEmail && !canSms)} type="button"><Send className="h-4 w-4" /> Send Now</button>
@@ -628,6 +659,7 @@ function ReportsPage({ data, config, reloadConfig }: { data: WeatherStationData;
         {status && <div className="status-line">{status}</div>}
         {!canEmail && <p className="config-note"><Mail className="h-4 w-4" /> Email delivery requires Resend configuration and at least one email-enabled Supabase contact.</p>}
         {!canSms && <p className="config-note"><MessageSquare className="h-4 w-4" /> SMS delivery requires Twilio configuration and at least one SMS-enabled E.164 contact.</p>}
+        {!templateWritable && <p className="config-note"><AlertTriangle className="h-4 w-4" /> Supabase writes are blocked because the server service-role JWT is not configured. Template edits are preview-only until writes are available.</p>}
         {brief && (
           <div className="brief-preview-grid">
             <article>
@@ -635,8 +667,8 @@ function ReportsPage({ data, config, reloadConfig }: { data: WeatherStationData;
               <iframe title="Daily brief HTML preview" srcDoc={brief.html} />
             </article>
             <article>
-              <h4>Plain Text</h4>
-              <pre>{brief.text}</pre>
+              <h4>Plain Text Template</h4>
+              <textarea value={template} onChange={(event) => setTemplate(event.target.value)} rows={18} aria-label="Daily brief plain text template" />
             </article>
             <article>
               <h4>SMS Summary</h4>

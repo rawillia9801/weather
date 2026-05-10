@@ -1,5 +1,6 @@
-import { briefSubject, buildDailyBriefData, loadBriefInputs, renderDailyBriefHtml, renderDailyBriefSms, renderDailyBriefText } from './_dailyBrief.js';
+import { briefSubject, buildDailyBriefData, DEFAULT_TEXT_TEMPLATE, loadBriefInputs, renderDailyBriefHtml, renderDailyBriefSms, renderTemplateText, renderTextAsHtml } from './_dailyBrief.js';
 import { cfg } from './_env.js';
+import { safeSelect } from './_supabase.js';
 
 export default async function handler(req, res) {
   try {
@@ -9,12 +10,16 @@ export default async function handler(req, res) {
       ? String(schedule.subject_template).replace('{{date}}', new Date(data.generatedAt).toLocaleDateString('en-US', { timeZone: schedule.timezone || cfg.timeZone }))
       : briefSubject(data);
     const previewContact = contacts.find((contact) => contact.email_enabled || contact.sms_enabled) || contacts[0];
+    const templates = await safeSelect('daily_brief_templates', [], { select: '*', channel: 'eq.email_text', is_active: 'eq.true', limit: 1 });
+    const template = templates[0]?.template_body || DEFAULT_TEXT_TEMPLATE;
+    const text = renderTemplateText(template, data, previewContact);
     return res.status(200).json({
       subject,
       generatedAt: data.generatedAt,
       data,
-      text: renderDailyBriefText(data, previewContact),
-      html: renderDailyBriefHtml(data, previewContact),
+      template,
+      text,
+      html: renderTextAsHtml(text, subject) || renderDailyBriefHtml(data, previewContact),
       sms: renderDailyBriefSms(data, previewContact),
       deliveryConfigured: {
         resend: Boolean(cfg.resendApiKey && cfg.resendFromEmail),

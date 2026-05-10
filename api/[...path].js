@@ -5,6 +5,7 @@ import contactById from '../serverless/contacts-id.js';
 import cronDailyBrief from '../serverless/cron-daily-brief.js';
 import dailyBriefPreview from '../serverless/daily-brief-preview.js';
 import dailyBriefSend from '../serverless/daily-brief-send.js';
+import dailyBriefTemplate from '../serverless/daily-brief-template.js';
 import health from '../serverless/health.js';
 import history from '../serverless/history.js';
 import settings from '../serverless/settings.js';
@@ -51,6 +52,7 @@ export default async function handler(req, res) {
     }
     if (pathname === '/api/daily-brief/preview') return dailyBriefPreview(req, res);
     if (pathname === '/api/daily-brief/send') return dailyBriefSend(req, res);
+    if (pathname === '/api/daily-brief/template') return dailyBriefTemplate(req, res);
     if (pathname === '/api/cron/daily-brief') return cronDailyBrief(req, res);
 
     return res.status(404).json({ ok: false, error: 'API route not found' });

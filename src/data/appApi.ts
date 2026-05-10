@@ -105,12 +105,27 @@ export interface IntegrationStatus {
 export interface DailyBriefPreview {
   subject: string;
   generatedAt: string;
+  template?: string;
   text: string;
   html: string;
   sms: string;
   contacts: Contact[];
   deliveryConfigured: { resend: boolean; twilio: boolean };
   logs: Record<string, unknown>[];
+}
+
+export interface DailyBriefTemplate {
+  ok: boolean;
+  template: {
+    id?: string;
+    name: string;
+    channel: string;
+    template_body: string;
+    is_active: boolean;
+  };
+  writable: boolean;
+  defaultTemplate: string;
+  error?: string;
 }
 
 function getSupabase() {

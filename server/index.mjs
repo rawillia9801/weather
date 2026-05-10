@@ -985,6 +985,56 @@ function estimateHungryMotherWaterConditions(data) {
   };
 }
 
+const DEFAULT_TEXT_TEMPLATE = `Live personal weather station
+Staley Street Weather Daily Brief
+
+{{greeting}}
+
+Right now in {{location}}, it is {{current.temperature}}F and {{current.condition}}, with a feels-like temperature of {{current.feelsLike}}F.
+
+Station {{stationId}}
+Updated {{updatedTime}}
+Source: {{source}}
+
+Today should reach about {{high}}F with a low near {{low}}F. Winds are {{current.windDirection}} at {{current.windSpeed}} mph with gusts near {{current.windGust}} mph.
+
+Rain chances today are {{today.precipChance}}%, with an estimated total of {{today.precipAmount}} inches.
+
+Air Quality
+{{airQuality.summary}}
+
+UV
+Current {{current.uvIndex}}{{uvPeakSummary}}
+
+Comfort Dashboard
+Humidity {{current.humidity}}%
+Pressure {{current.pressure}} inHg
+{{comfortSummary}}
+
+Five-Day Outlook
+
+{{forecastText}}
+
+Rain And Ground Conditions
+Rain today: {{rainToday}}. Ground estimate: {{groundCondition.label}}. {{groundCondition.summary}}
+
+Hungry Mother State Park Water Conditions
+{{waterCondition.waterTemp}}
+{{waterCondition.measuredOrEstimatedNote}}
+Surface: {{waterCondition.surface}}. Rain/clarity: {{waterCondition.clarityNote}}
+
+Sun And Moon
+Sunrise {{sunMoon.sunrise}}
+Sunset {{sunMoon.sunset}}
+Moon {{moon.phase}} {{moon.illumination}}%
+{{moon.skyEvent}}
+
+Alerts And Notes
+{{alertsText}}
+
+Station Status
+Station is {{stationStatus.label}} with data quality {{stationStatus.dataQuality}}.`;
+
 function greetingFor(contact) {
   const name = String(contact?.display_name || '').trim();
   return name ? `Good Morning, ${name} - here's your daily weather brief.` : "Good Morning - here's your daily weather brief.";
@@ -1289,6 +1339,34 @@ app.patch('/api/settings/:table', async (req, res) => {
   } catch (error) {
     res.status(400).json({ error: error instanceof Error ? error.message : 'Unable to persist settings' });
   }
+});
+
+app.get('/api/daily-brief/template', async (_req, res) => {
+  const rows = await safeSelect('daily_brief_templates', [], { select: '*', channel: 'eq.email_text', is_active: 'eq.true', limit: 1 });
+  res.json({
+    ok: true,
+    template: rows[0] || { name: 'default', channel: 'email_text', template_body: DEFAULT_TEXT_TEMPLATE, is_active: true },
+    writable: supabaseCanWrite(),
+    defaultTemplate: DEFAULT_TEXT_TEMPLATE,
+  });
+});
+
+app.post('/api/daily-brief/template', async (req, res) => {
+  if (!supabaseCanWrite()) {
+    return res.status(403).json({
+      ok: false,
+      error: 'Supabase writes are blocked because the server service-role JWT is not configured.',
+      writable: false,
+    });
+  }
+  const templateBody = String(req.body?.template_body || '').trim();
+  if (!templateBody) return res.status(400).json({ ok: false, error: 'Template body is required' });
+  const rows = await safeSelect('daily_brief_templates', [], { select: '*', channel: 'eq.email_text', is_active: 'eq.true', limit: 1 });
+  const body = { name: rows[0]?.name || 'default', channel: 'email_text', template_body: templateBody, is_active: true, updated_at: new Date().toISOString() };
+  const result = rows[0]?.id
+    ? await supabaseRest('daily_brief_templates', { method: 'PATCH', query: { id: `eq.${rows[0].id}` }, body })
+    : await supabaseRest('daily_brief_templates', { method: 'POST', body });
+  res.json({ ok: true, template: Array.isArray(result) ? result[0] : body, writable: true });
 });
 
 app.get('/api/daily-brief/preview', async (_req, res) => {
