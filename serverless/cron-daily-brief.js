@@ -1,5 +1,5 @@
-import { buildDailyBriefData, loadBriefInputs, renderDailyBriefHtml, renderDailyBriefSms, renderDailyBriefText, sendEmail } from '../_dailyBrief.js';
-import { cfg } from '../_env.js';
+import { buildDailyBriefData, loadBriefInputs, renderDailyBriefHtml, renderDailyBriefSms, renderDailyBriefText, sendEmail } from './_dailyBrief.js';
+import { cfg } from './_env.js';
 
 export default async function handler(req, res) {
   try {

@@ -1307,6 +1307,13 @@ app.post('/api/daily-brief/send', async (req, res) => {
   }
 });
 
+app.use('/api', (_req, res) => {
+  res.status(404).json({
+    ok: false,
+    error: 'API route not found',
+  });
+});
+
 if (fs.existsSync(path.join(root, 'dist'))) {
   app.use(express.static(path.join(root, 'dist')));
   app.get('*', (_req, res) => res.sendFile(path.join(root, 'dist', 'index.html')));

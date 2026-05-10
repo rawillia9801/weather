@@ -1,4 +1,4 @@
-import { supabaseRest } from '../_supabase.js';
+import { supabaseRest } from './_supabase.js';
 
 function parseBody(req) {
   if (!req.body) return {};

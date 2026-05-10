@@ -1,5 +1,5 @@
-import { briefSubject, buildDailyBriefData, loadBriefInputs, renderDailyBriefHtml, renderDailyBriefSms, renderDailyBriefText, sendEmail } from '../_dailyBrief.js';
-import { cfg } from '../_env.js';
+import { briefSubject, buildDailyBriefData, loadBriefInputs, renderDailyBriefHtml, renderDailyBriefSms, renderDailyBriefText, sendEmail } from './_dailyBrief.js';
+import { cfg } from './_env.js';
 
 function parseBody(req) {
   if (!req.body) return {};
