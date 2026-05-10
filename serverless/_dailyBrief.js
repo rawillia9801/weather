@@ -13,9 +13,10 @@ Station {{stationId}}
 Updated {{updatedTime}}
 Source: {{source}}
 
-Today should reach about {{high}}F with a low near {{low}}F. Winds are {{current.windDirection}} at {{current.windSpeed}} mph with gusts near {{current.windGust}} mph.
+Today should reach about {{high}}F{{highTimeSummary}}, with a low near {{low}}F tonight. Winds are {{current.windDirection}} at {{current.windSpeed}} mph with gusts near {{current.windGust}} mph.
 
 Rain chances today are {{today.precipChance}}%, with an estimated total of {{today.precipAmount}} inches.
+{{precipTimingSummary}}
 
 Air Quality
 {{airQuality.summary}}
@@ -31,6 +32,12 @@ Pressure {{current.pressure}} inHg
 Five-Day Outlook
 
 {{forecastText}}
+
+Local Events
+{{localEventsText}}
+
+Sky Watch
+{{skyEventsText}}
 
 Rain And Ground Conditions
 Rain today: {{rainToday}}. Ground estimate: {{groundCondition.label}}. {{groundCondition.summary}}
@@ -135,6 +142,10 @@ export function buildDailyBriefData(weatherData, schedule = {}) {
     rainToday: `${Number(weatherData.precipitation?.today || 0).toFixed(2)} in`,
     high: firstForecast.high ?? current.high,
     low: firstForecast.low ?? current.low,
+    highTimeSummary: ' around the warmest afternoon window',
+    precipTimingSummary: precipitationTimingSummary(weatherData),
+    localEventsText: 'No local events are configured for today.',
+    skyEventsText: weatherData.moon?.skyEvent || 'No major sky events are configured for the next few days.',
     comfortSummary: generateComfortSummary(weatherData),
     groundCondition: estimateGroundConditions(weatherData),
     waterCondition: estimateHungryMotherWaterConditions(weatherData),
@@ -178,6 +189,15 @@ function greetingFor(contact) {
   return name ? `Good Morning, ${name} — here’s your daily weather brief.` : "Good Morning — here’s your daily weather brief.";
 }
 
+function precipitationTimingSummary(data) {
+  const today = data.forecast?.[0] || {};
+  const amount = Number(today.precipitationAmount || 0);
+  const chance = Number(today.precipitationChance || 0);
+  const snow = Number(today.snowfallAmount || 0);
+  if (chance <= 10 && amount <= 0 && snow <= 0) return 'No meaningful rain or snow is expected today.';
+  return 'Specific rain or snow timing is unavailable from the current source.';
+}
+
 export function renderDailyBriefText(data, contact) {
   return renderTemplateText(DEFAULT_TEXT_TEMPLATE, data, contact);
 }
@@ -194,10 +214,14 @@ export function renderTemplateText(template, data, contact) {
     source: data.source,
     high: data.high,
     low: data.low,
+    highTimeSummary: data.highTimeSummary,
     rainToday: data.rainToday,
     comfortSummary: data.comfortSummary,
     forecastText: outlook,
     alertsText: alerts,
+    precipTimingSummary: data.precipTimingSummary,
+    localEventsText: data.localEventsText,
+    skyEventsText: data.skyEventsText,
     uvPeakSummary: data.current.uvPeak ? `, peak near ${data.current.uvPeak}${data.current.uvPeakTime ? ` around ${data.current.uvPeakTime}` : ''}` : '',
     'current.temperature': data.current.temperature,
     'current.condition': data.current.condition,
