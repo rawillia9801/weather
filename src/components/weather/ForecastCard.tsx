@@ -6,6 +6,12 @@ import { ConditionBackdrop } from './ConditionBackdrop';
 export function ForecastCard({ forecast }: { forecast: ForecastDay }) {
   const theme = getConditionTheme(forecast.condition);
   const Icon = getConditionIcon(forecast.condition);
+  const precipAmount = typeof forecast.precipitationAmount === 'number' && Number.isFinite(forecast.precipitationAmount)
+    ? `${forecast.precipitationAmount.toFixed(2)} in`
+    : 'Amt n/a';
+  const amountLabel = typeof forecast.snowfallAmount === 'number' && forecast.snowfallAmount > 0
+    ? `Snow ${forecast.snowfallAmount.toFixed(1)} in`
+    : precipAmount;
 
   return (
     <ConditionBackdrop condition={forecast.condition} className="forecast-card">
@@ -23,7 +29,7 @@ export function ForecastCard({ forecast }: { forecast: ForecastDay }) {
           <div className="forecast-pop">
             <Droplet className="h-4 w-4 text-cyan-300" />
             <span>{forecast.precipitationChance}%</span>
-            <span className="forecast-amount">{(forecast.precipitationAmount ?? 0).toFixed(2)} in</span>
+            <span className="forecast-amount">{amountLabel}</span>
           </div>
           <div className="source-chip" title={forecast.source || 'Forecast source unavailable'}>{forecast.source || 'Source n/a'}</div>
         </div>
