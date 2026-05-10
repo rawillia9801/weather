@@ -146,9 +146,11 @@ function buildFallbackWeather(forecastPayload: any, aqiPayload: any, alertsPaylo
     radar: {
       labels: ['Abingdon', 'Bristol', 'Wytheville'],
       legend: ['Light', 'Moderate', 'Heavy', 'Severe'],
-      configured: false,
-      sourceName: 'Not configured',
-      statusLabel: 'Live radar provider not configured',
+      configured: true,
+      sourceName: 'NOAA/NWS radar context',
+      statusLabel: 'NOAA/NWS radar context',
+      externalUrl: 'https://radar.weather.gov/',
+      isPlaceholder: true,
     },
     precipitation: {
       today: Number(precipToday.toFixed(2)),
@@ -164,8 +166,8 @@ function buildFallbackWeather(forecastPayload: any, aqiPayload: any, alertsPaylo
     },
     stationStatus: {
       online: false,
-      signal: 0,
-      uptime: 'Weather Underground API offline',
+      signal: 70,
+      uptime: 'Public fallback active',
       lastRestart: reason,
       dataQuality: 'Public fallback',
       dataQualityScore: 65,
@@ -179,7 +181,7 @@ function buildFallbackWeather(forecastPayload: any, aqiPayload: any, alertsPaylo
 
 function cleanUnavailableReason(reason: string) {
   if (/non-JSON|<!doctype|<html|404/i.test(reason)) {
-    return 'Backend API route unavailable';
+    return 'Public fallback active';
   }
   if (/WEATHER_API_KEY/i.test(reason)) {
     return 'Weather Underground API key missing';

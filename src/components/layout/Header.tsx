@@ -20,6 +20,8 @@ export function Header({ station, clock, status }: { station: StationInfo; clock
     day: 'numeric',
     year: 'numeric',
   });
+  const badgeLabel = status.online ? 'LIVE' : status.dataQuality === 'Public fallback' ? 'PUBLIC FALLBACK' : 'OFFLINE';
+  const badgeTone = status.online ? 'green' : 'amber';
 
   return (
     <header className="dashboard-header">
@@ -31,7 +33,7 @@ export function Header({ station, clock, status }: { station: StationInfo; clock
           <span>&bull;</span>
           <span>Station {station.id}</span>
           <span>&bull;</span>
-          <LiveBadge label={status.online ? 'LIVE' : 'OFFLINE'} tone={status.online ? 'green' : 'amber'} />
+          <LiveBadge label={badgeLabel} tone={badgeTone} />
         </div>
       </div>
 
@@ -40,7 +42,7 @@ export function Header({ station, clock, status }: { station: StationInfo; clock
           <Clock3 className="h-4 w-4" />
           {timeLabel}
         </div>
-        <LiveBadge label={status.online ? 'LIVE' : 'OFFLINE'} tone={status.online ? 'green' : 'amber'} />
+        <LiveBadge label={badgeLabel} tone={badgeTone} />
         <nav className="top-tabs" aria-label="Dashboard sections">
           {tabs.map(({ label, icon: Icon, to, badge }) => (
             <NavLink key={label} to={to} className={({ isActive }) => `top-tab ${isActive ? 'active' : ''}`} aria-label={label}>

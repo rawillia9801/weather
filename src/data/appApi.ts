@@ -187,11 +187,21 @@ function integrationConfigured(rows: IntegrationStatus[], name: string) {
 
 function mergeIntegrationStatus(rows: IntegrationStatus[]) {
   const names = ['Weather Underground PWS', 'Forecast source', 'UV source', 'AQI source', 'Radar source', 'Camera source', 'Supabase', 'Resend', 'Twilio'];
-  return names.map((name) => rows.find((row) => row.integration_name === name) || {
+  return names.map((name) => {
+    const fallbackConfigured = name === 'Forecast source' || name === 'UV source' || name === 'AQI source' || name === 'Radar source' || (name === 'Supabase' && Boolean(SUPABASE_URL && SUPABASE_ANON_KEY));
+    const fallbackLabel =
+      name === 'UV source' ? 'Open-Meteo UV fallback active' :
+      name === 'AQI source' ? 'Open-Meteo Air Quality fallback active' :
+      name === 'Radar source' ? 'NOAA/NWS radar context active' :
+      null;
+    const row = rows.find((item) => item.integration_name === name);
+    if (row) return { ...row, configured: Boolean(row.configured || fallbackConfigured), last_error_message: row.last_error_message || fallbackLabel };
+    return {
     integration_name: name,
-    configured: name === 'Supabase' ? Boolean(SUPABASE_URL && SUPABASE_ANON_KEY) : false,
+    configured: fallbackConfigured,
     last_success_at: null,
     last_error_at: null,
-    last_error_message: null,
+    last_error_message: fallbackLabel,
+    };
   });
 }

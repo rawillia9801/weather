@@ -1,5 +1,6 @@
 import { cfg } from './_env.js';
 import { logDelivery, safeSelect } from './_supabase.js';
+import weatherHandler from './weather.js';
 
 function absoluteBaseUrl(req) {
   const proto = req.headers['x-forwarded-proto'] || 'https';
@@ -20,10 +21,35 @@ async function fetchJson(url) {
   return payload;
 }
 
+async function loadWeather(req) {
+  let statusCode = 200;
+  let payload;
+  const weatherReq = { ...req, method: 'GET', url: '/api/weather', headers: req.headers || {}, query: {} };
+  const weatherRes = {
+    setHeader() { return this; },
+    status(code) {
+      statusCode = code;
+      return this;
+    },
+    json(body) {
+      payload = body;
+      return this;
+    },
+    end(body = '') {
+      payload = body ? JSON.parse(String(body)) : {};
+      return this;
+    },
+  };
+  await weatherHandler(weatherReq, weatherRes);
+  if (statusCode < 200 || statusCode > 299) {
+    throw new Error(payload?.error || payload?.message || 'Weather route unavailable');
+  }
+  return payload;
+}
+
 export async function loadBriefInputs(req) {
-  const baseUrl = absoluteBaseUrl(req);
   const [weather, contacts, schedules, logs] = await Promise.all([
-    fetchJson(`${baseUrl}/api/weather`),
+    loadWeather(req).catch(async () => fetchJson(`${absoluteBaseUrl(req)}/api/weather`)),
     safeSelect('contacts', []),
     safeSelect('daily_brief_schedules', []),
     safeSelect('daily_brief_send_logs', [], { select: '*', order: 'created_at.desc', limit: 20 }),

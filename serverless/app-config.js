@@ -138,19 +138,38 @@ function first(rows, fallbackValue) {
 function integrationStatus(rows) {
   const names = ['Weather Underground PWS', 'Forecast source', 'UV source', 'AQI source', 'Radar source', 'Camera source', 'Supabase', 'Resend', 'Twilio'];
   const existing = new Map((rows || []).map((row) => [row.integration_name, row]));
-  return names.map((name) => existing.get(name) || {
-    integration_name: name,
-    configured:
+  return names.map((name) => {
+    const fallbackConfigured =
       name === 'Weather Underground PWS' ? Boolean(cfg.weatherKey) :
       name === 'Forecast source' ? true :
+      name === 'UV source' ? true :
+      name === 'AQI source' ? true :
+      name === 'Radar source' ? true :
       name === 'Camera source' ? Boolean(cfg.cameraUrl) :
       name === 'Supabase' ? supabaseCanRead() :
       name === 'Resend' ? Boolean(cfg.resendApiKey && cfg.resendFromEmail) :
       name === 'Twilio' ? Boolean((cfg.twilioAuthToken || cfg.twilioApiKeySecret) && (cfg.twilioFromNumber || cfg.twilioMessagingServiceSid)) :
-      false,
-    last_success_at: null,
-    last_error_at: null,
-    last_error_message: null,
+      false;
+    const fallbackLabel =
+      name === 'UV source' ? 'Open-Meteo UV fallback active' :
+      name === 'AQI source' ? 'Open-Meteo Air Quality fallback active' :
+      name === 'Radar source' ? 'NOAA/NWS radar context active' :
+      null;
+    const row = existing.get(name);
+    if (row) {
+      return {
+        ...row,
+        configured: Boolean(row.configured || fallbackConfigured),
+        last_error_message: row.last_error_message || fallbackLabel,
+      };
+    }
+    return {
+      integration_name: name,
+      configured: fallbackConfigured,
+      last_success_at: null,
+      last_error_at: null,
+      last_error_message: fallbackLabel,
+    };
   });
 }
 

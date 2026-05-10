@@ -13,6 +13,9 @@ const navItems = [
 ];
 
 export function Sidebar({ status }: { status: StationStatus }) {
+  const usingFallback = !status.online && status.dataQuality === 'Public fallback';
+  const statusLabel = status.online ? 'Online' : usingFallback ? 'Public fallback' : 'Offline';
+  const statusTone = status.online ? 'text-green-400' : 'text-amber-300';
   return (
     <aside className="sidebar">
       <div className="station-logo" aria-label="Staley Street Weather logo">
@@ -30,14 +33,14 @@ export function Sidebar({ status }: { status: StationStatus }) {
 
       <div className="station-status-card">
         <div className="panel-kicker">Station Status</div>
-        <div className={`mt-3 flex items-center gap-2 text-sm font-semibold uppercase ${status.online ? 'text-green-400' : 'text-amber-300'}`}>
+        <div className={`mt-3 flex items-center gap-2 text-sm font-semibold uppercase ${statusTone}`}>
           <span className={`live-dot ${status.online ? '' : 'live-dot-amber'}`} />
-          {status.online ? 'Online' : 'Offline'}
+          {statusLabel}
         </div>
         <div className="mt-3 space-y-2 text-xs text-white/70">
           <div className="flex justify-between gap-2">
             <span>Signal: {status.signal}%</span>
-            <Signal className={`h-4 w-4 ${status.online ? 'text-green-400' : 'text-amber-300'}`} />
+            <Signal className={`h-4 w-4 ${statusTone}`} />
           </div>
           <div>Uptime: {status.uptime}</div>
           <div>
@@ -47,8 +50,8 @@ export function Sidebar({ status }: { status: StationStatus }) {
         </div>
         <div className="mt-4 border-t border-cyan-300/15 pt-3">
           <div className="panel-kicker text-[11px]">Data Quality</div>
-          <div className={`mt-2 text-sm ${status.online ? 'text-green-400' : 'text-amber-300'}`}>{status.dataQuality}</div>
-          <div className={`mt-1 text-lg ${status.online ? 'text-green-400' : 'text-amber-300'}`}>{status.dataQualityScore}%</div>
+          <div className={`mt-2 text-sm ${statusTone}`}>{status.dataQuality}</div>
+          <div className={`mt-1 text-lg ${statusTone}`}>{status.dataQualityScore}%</div>
           <div className="mt-2 h-1.5 rounded-full bg-white/10">
             <div className="h-full rounded-full bg-green-400" style={{ width: `${status.dataQualityScore}%` }} />
           </div>

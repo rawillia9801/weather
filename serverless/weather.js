@@ -204,8 +204,8 @@ function alertsFromNws(payload) {
 function cleanProviderReason(error) {
   const message = error instanceof Error ? error.message : String(error || '');
   if (!message) return 'Weather Underground PWS unavailable';
-  if (message.includes('401 Unauthorized')) return 'Weather Underground API offline';
-  if (message.includes('Access Denied')) return 'Weather Underground API offline';
+  if (message.includes('401 Unauthorized')) return 'PWS source unavailable';
+  if (message.includes('Access Denied')) return 'PWS source unavailable';
   if (message.includes('Invalid apiKey')) return 'Weather Underground API key rejected';
   return message.replace(/\s+/g, ' ').slice(0, 140);
 }
@@ -445,7 +445,7 @@ function buildLightning(forecast = []) {
     nearStation: null,
     cloudStrikes: null,
     cloudToGround: null,
-    source: XWEATHER_CLIENT_ID && XWEATHER_CLIENT_SECRET ? 'Xweather not connected' : 'Not configured',
+    source: XWEATHER_CLIENT_ID && XWEATHER_CLIENT_SECRET ? 'Xweather configured but failing' : 'Live strike source not configured',
     statusLabel: stormRisk ? 'Thunderstorm risk in forecast; no live strike source configured' : 'Live strike source not configured',
     lastStrikeTime: null,
     closestStrikeDistance: null,
@@ -497,7 +497,7 @@ async function buildWeather() {
     aqi: AIRNOW_API_KEY ? 'AirNow official AQI' : 'Open-Meteo air quality fallback',
     radar: RADAR_CONTEXT_URL ? RADAR_PROVIDER_NAME : 'NOAA/NWS radar context',
     uv: 'Unavailable',
-    lightning: XWEATHER_CLIENT_ID && XWEATHER_CLIENT_SECRET ? 'Xweather configured' : 'Not configured',
+    lightning: XWEATHER_CLIENT_ID && XWEATHER_CLIENT_SECRET ? 'Xweather configured' : 'Live strike source not configured',
     errors: [],
   };
 
@@ -622,11 +622,11 @@ async function buildWeather() {
     precipitation: buildPrecipitation(current, bundle.forecast, Boolean(pws)),
     lightning: buildLightning(bundle.forecast),
     stationStatus: {
-      online: hasLiveWeather,
+      online: Boolean(pws),
       signal: pws ? 98 : hasLiveWeather ? 92 : 0,
-      uptime: pws ? '15d 4h' : hasLiveWeather ? 'Live fallback active' : 'Unavailable',
+      uptime: pws ? '15d 4h' : hasLiveWeather ? 'Public fallback active' : 'Unavailable',
       lastRestart: pws ? 'Apr 13, 1:22 AM' : hasLiveWeather ? `${dataSource.current}; ${dataSource.forecast}` : dataSource.errors[0]?.message || 'Weather sources unavailable',
-      dataQuality: pws ? 'Excellent' : hasLiveWeather ? 'Live fallback' : 'Unavailable',
+      dataQuality: pws ? 'Excellent' : hasLiveWeather ? 'Public fallback' : 'Unavailable',
       dataQualityScore: pws ? 100 : hasLiveWeather ? 70 : 0,
     },
     camera: { snapshotUrl: process.env.LOREX_CAMERA_SNAPSHOT_URL || process.env.STATION_CAMERA_SNAPSHOT_URL || '', name: process.env.LOREX_CAMERA_NAME || process.env.STATION_CAMERA_NAME || 'Station Camera' },

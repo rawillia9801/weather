@@ -172,7 +172,8 @@ async function getJson(url) {
 
 function cleanProviderReason(error) {
   const message = error instanceof Error ? error.message : String(error || 'Unknown provider error');
-  if (message.includes('Access Denied')) return 'Weather Underground API offline';
+  if (message.includes('Access Denied')) return 'PWS source unavailable';
+  if (message.includes('401 Unauthorized')) return 'PWS source unavailable';
   if (message.includes('Invalid apiKey')) return 'Weather Underground API key rejected';
   return message.replace(/\s+/g, ' ').slice(0, 160);
 }
@@ -860,20 +861,38 @@ async function loadAppConfig() {
 function buildIntegrationStatus(rows) {
   const names = ['Weather Underground PWS', 'Forecast source', 'UV source', 'AQI source', 'Radar source', 'Camera source', 'Supabase', 'Resend', 'Twilio'];
   const configured = new Map((rows || []).map((row) => [row.integration_name, row]));
-  return names.map((name) => configured.get(name) || {
-    integration_name: name,
-    configured:
+  return names.map((name) => {
+    const fallbackConfigured =
       name === 'Weather Underground PWS' ? Boolean(cfg.weatherKey) :
-      name === 'Radar source' ? Boolean(cfg.radarContextUrl) :
+      name === 'Forecast source' ? true :
+      name === 'UV source' ? true :
       name === 'AQI source' ? true :
+      name === 'Radar source' ? true :
       name === 'Camera source' ? Boolean(cfg.cameraUrl) :
       name === 'Supabase' ? supabaseConfigured() :
       name === 'Resend' ? Boolean(cfg.resendApiKey) :
       name === 'Twilio' ? Boolean(cfg.twilioApiKeySecret) :
-      name === 'Forecast source',
-    last_success_at: null,
-    last_error_at: null,
-    last_error_message: null,
+      false;
+    const fallbackLabel =
+      name === 'UV source' ? 'Open-Meteo UV fallback active' :
+      name === 'AQI source' ? 'Open-Meteo Air Quality fallback active' :
+      name === 'Radar source' ? 'NOAA/NWS radar context active' :
+      null;
+    const row = configured.get(name);
+    if (row) {
+      return {
+        ...row,
+        configured: Boolean(row.configured || fallbackConfigured),
+        last_error_message: row.last_error_message || fallbackLabel,
+      };
+    }
+    return {
+      integration_name: name,
+      configured: fallbackConfigured,
+      last_success_at: null,
+      last_error_at: null,
+      last_error_message: fallbackLabel,
+    };
   });
 }
 
@@ -1130,11 +1149,11 @@ async function loadWeatherUndergroundStation() {
     stationStatus: currentPayload
       ? undefined
       : {
-          online: hasLiveWeather,
+          online: Boolean(currentPayload),
           signal: hasLiveWeather ? 92 : 0,
-          uptime: hasLiveWeather ? 'Live fallback active' : 'Unavailable',
+          uptime: hasLiveWeather ? 'Public fallback active' : 'Unavailable',
           lastRestart: hasLiveWeather ? `${dataSource.current}; ${dataSource.forecast}` : sourceErrors[0]?.message || 'Weather Underground PWS unavailable',
-          dataQuality: hasLiveWeather ? 'Live fallback' : 'Unavailable',
+          dataQuality: hasLiveWeather ? 'Public fallback' : 'Unavailable',
           dataQualityScore: hasLiveWeather ? 70 : 0,
         },
     dataSource,
