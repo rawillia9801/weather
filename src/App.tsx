@@ -922,6 +922,7 @@ function sourceStatusLabel(row: { integration_name: string; configured: boolean;
   if (row.integration_name === 'UV source' && dataSource?.uv?.includes('Open-Meteo')) return 'Fallback active';
   if (row.integration_name === 'AQI source' && dataSource?.aqi?.includes('Open-Meteo')) return 'Fallback active';
   if (row.integration_name === 'Radar source' && dataSource?.radar?.includes('NOAA/NWS')) return 'Fallback active';
+  if (row.status_label === 'Fallback active') return 'Fallback active';
   if (row.last_error_message) return row.configured ? 'Configured but failing' : 'Not configured';
   return row.status_label || (row.configured ? 'Configured' : 'Not configured');
 }
