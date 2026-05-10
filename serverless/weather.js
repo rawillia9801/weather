@@ -446,13 +446,14 @@ function buildPrecipitation(current, forecast = [], hasPws = false) {
 
 function buildLightning(forecast = []) {
   const stormRisk = forecast.some((day) => /thunder/i.test(day.condition || ''));
+  const hasLiveProvider = Boolean(XWEATHER_CLIENT_ID && XWEATHER_CLIENT_SECRET);
   return {
     total: null,
     nearStation: null,
     cloudStrikes: null,
     cloudToGround: null,
-    source: XWEATHER_CLIENT_ID && XWEATHER_CLIENT_SECRET ? 'Xweather configured but failing' : 'Live strike source not configured',
-    statusLabel: stormRisk ? 'Thunderstorm risk in forecast; no live strike source configured' : 'Live strike source not configured',
+    source: hasLiveProvider ? 'Xweather configured; live strike query unavailable' : 'Live strike source not configured',
+    statusLabel: stormRisk ? 'Storm risk only; no live strike source configured' : 'Live strike source not configured',
     lastStrikeTime: null,
     closestStrikeDistance: null,
   };
