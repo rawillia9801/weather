@@ -22,8 +22,10 @@ export function ForecastCard({ forecast }: { forecast: ForecastDay }) {
           <div className="forecast-label">{theme.label}</div>
           <div className="forecast-pop">
             <Droplet className="h-4 w-4 text-cyan-300" />
-            {forecast.precipitationChance}%
+            <span>{forecast.precipitationChance}%</span>
+            <span className="forecast-amount">{(forecast.precipitationAmount ?? 0).toFixed(2)} in</span>
           </div>
+          <div className="source-chip" title={forecast.source || 'Forecast source unavailable'}>{forecast.source || 'Source n/a'}</div>
         </div>
       </div>
     </ConditionBackdrop>

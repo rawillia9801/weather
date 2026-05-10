@@ -5,6 +5,10 @@ const TIME_ZONE = envValue('REPORT_TIME_ZONE') || envValue('TZ') || 'America/New
 const WEATHER_KEY = weatherKeyValue();
 const RADAR_CONTEXT_URL = envValue('RADAR_CONTEXT_URL') || '';
 const RADAR_PROVIDER_NAME = envValue('RADAR_PROVIDER_NAME') || 'Radar provider';
+const AIRNOW_API_KEY = envValue('AIRNOW_API_KEY') || '';
+const XWEATHER_CLIENT_ID = envValue('XWEATHER_CLIENT_ID') || '';
+const XWEATHER_CLIENT_SECRET = envValue('XWEATHER_CLIENT_SECRET') || '';
+const ZIP_CODE = envValue('STATION_ZIP') || '24354';
 let weatherCache = null;
 let weatherCacheAt = 0;
 const WEATHER_CACHE_MS = 120000;
@@ -56,6 +60,19 @@ function condition(text = '', isNight = false) {
 function n(value, fallback = 0) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
+}
+
+function maybeNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function sumNumbers(values = []) {
+  return Number(values.reduce((sum, value) => sum + n(value, 0), 0).toFixed(2));
+}
+
+function sourceError(source, error) {
+  return { source, message: cleanProviderReason(error) };
 }
 
 function time(value) {
@@ -111,6 +128,9 @@ function forecastFromWeatherCom(payload) {
       high: Math.round(n(payload.temperatureMax?.[index], n(payload.calendarDayTemperatureMax?.[index]))),
       low: Math.round(n(payload.temperatureMin?.[index], n(payload.calendarDayTemperatureMin?.[index]))),
       precipitationChance: Math.round(n(payload.daypart?.[0]?.precipChance?.[dayPart], 0)),
+      precipitationAmount: 0,
+      snowfallAmount: 0,
+      source: 'Weather.com',
     };
   });
 }
@@ -154,6 +174,9 @@ function forecastFromNws(payload) {
       high: Math.round(n(period.temperature)),
       low: Math.round(n(night?.temperature, period.temperature)),
       precipitationChance: Math.round(n(period.probabilityOfPrecipitation?.value, 0)),
+      precipitationAmount: 0,
+      snowfallAmount: 0,
+      source: 'NWS',
     });
   }
   return days;
@@ -188,6 +211,31 @@ function cleanProviderReason(error) {
 }
 
 async function loadAirQuality() {
+  if (AIRNOW_API_KEY) {
+    try {
+      const airNowUrl = new URL('https://www.airnowapi.org/aq/observation/zipCode/current/');
+      airNowUrl.searchParams.set('format', 'application/json');
+      airNowUrl.searchParams.set('zipCode', ZIP_CODE);
+      airNowUrl.searchParams.set('distance', '25');
+      airNowUrl.searchParams.set('API_KEY', AIRNOW_API_KEY);
+      const rows = await getJson(airNowUrl);
+      const readings = Array.isArray(rows) ? rows : [];
+      const primary = readings.slice().sort((a, b) => n(b.AQI, -1) - n(a.AQI, -1))[0];
+      const aqi = primary ? Math.round(n(primary.AQI)) : null;
+      return {
+        aqi,
+        label: primary?.Category?.Name || getAqiLabel(aqi),
+        message: getAqiMessage(aqi),
+        source: 'AirNow official AQI',
+        updatedAt: primary?.DateObserved ? `${primary.DateObserved} ${primary.HourObserved || ''}:00` : null,
+        pollutantDriver: primary?.ParameterName || undefined,
+        pollutants: readings.map((item) => ({ label: item.ParameterName || 'AQI', value: Math.round(n(item.AQI)) })),
+      };
+    } catch {
+      // Fall through to Open-Meteo fallback below; source status is exposed in /api/weather/debug.
+    }
+  }
+
   const url = new URL('https://air-quality-api.open-meteo.com/v1/air-quality');
   url.searchParams.set('latitude', String(LATITUDE));
   url.searchParams.set('longitude', String(LONGITUDE));
@@ -204,6 +252,7 @@ async function loadAirQuality() {
       message: getAqiMessage(aqi),
       source: 'Open-Meteo Air Quality',
       updatedAt: current.time || null,
+      pollutantDriver: 'US AQI',
       pollutants: [
         { label: 'PM2.5', value: formatPollutant(current.pm2_5) },
         { label: 'PM10', value: formatPollutant(current.pm10) },
@@ -277,24 +326,70 @@ async function loadOpenMeteoCurrent() {
   const url = new URL('https://api.open-meteo.com/v1/forecast');
   url.searchParams.set('latitude', String(LATITUDE));
   url.searchParams.set('longitude', String(LONGITUDE));
-  url.searchParams.set('current', 'temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,pressure_msl,wind_speed_10m,wind_direction_10m,wind_gusts_10m,is_day');
-  url.searchParams.set('daily', 'precipitation_sum');
+  url.searchParams.set('current', 'temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,showers,snowfall,weather_code,cloud_cover,surface_pressure,pressure_msl,wind_speed_10m,wind_direction_10m,wind_gusts_10m');
+  url.searchParams.set('hourly', 'temperature_2m,apparent_temperature,precipitation,precipitation_probability,rain,showers,snowfall,weather_code,cloud_cover,relative_humidity_2m,surface_pressure,pressure_msl,wind_speed_10m,wind_gusts_10m,uv_index');
+  url.searchParams.set('daily', 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,rain_sum,showers_sum,snowfall_sum,precipitation_probability_max,sunrise,sunset,daylight_duration,uv_index_max,wind_gusts_10m_max');
   url.searchParams.set('temperature_unit', 'fahrenheit');
   url.searchParams.set('wind_speed_unit', 'mph');
   url.searchParams.set('precipitation_unit', 'inch');
   url.searchParams.set('timezone', TIME_ZONE);
+  url.searchParams.set('forecast_days', '6');
   const payload = await getJson(url);
   const current = payload?.current || {};
   return {
-    temperature: n(current.temperature_2m),
-    feelsLike: n(current.apparent_temperature, current.temperature_2m),
-    humidity: n(current.relative_humidity_2m),
-    pressure: Number((n(current.pressure_msl, 1013.25) / 33.8639).toFixed(2)),
-    windSpeed: n(current.wind_speed_10m),
-    windGust: n(current.wind_gusts_10m),
-    windDirection: windDirectionFromDegrees(current.wind_direction_10m),
-    conditionText: conditionFromWeatherCode(current.weather_code, current.is_day === 1),
-    precipToday: n(payload?.daily?.precipitation_sum?.[0], n(current.precipitation, 0)),
+    payload,
+    current: {
+      temperature: n(current.temperature_2m),
+      feelsLike: n(current.apparent_temperature, current.temperature_2m),
+      humidity: n(current.relative_humidity_2m),
+      pressure: Number((n(current.pressure_msl, n(current.surface_pressure, 1013.25)) / 33.8639).toFixed(2)),
+      windSpeed: n(current.wind_speed_10m),
+      windGust: n(current.wind_gusts_10m),
+      windDirection: windDirectionFromDegrees(current.wind_direction_10m),
+      conditionText: conditionFromWeatherCode(current.weather_code, current.is_day === 1),
+      precipToday: n(payload?.daily?.precipitation_sum?.[0], n(current.precipitation, 0)),
+    },
+  };
+}
+
+function forecastFromOpenMeteo(payload) {
+  const daily = payload?.daily || {};
+  const times = daily.time || [];
+  return times.slice(0, 5).map((date, index) => ({
+    day: index === 0 ? 'Today' : index === 1 ? 'Tomorrow' : new Date(`${date}T12:00:00`).toLocaleDateString('en-US', { timeZone: TIME_ZONE, weekday: 'long' }),
+    date,
+    condition: conditionFromWeatherCode(daily.weather_code?.[index], true),
+    high: Math.round(n(daily.temperature_2m_max?.[index])),
+    low: Math.round(n(daily.temperature_2m_min?.[index])),
+    precipitationChance: Math.round(n(daily.precipitation_probability_max?.[index], 0)),
+    precipitationAmount: Number(n(daily.precipitation_sum?.[index], 0).toFixed(2)),
+    snowfallAmount: Number(n(daily.snowfall_sum?.[index], 0).toFixed(2)),
+    windGust: Math.round(n(daily.wind_gusts_10m_max?.[index], 0)),
+    source: 'Open-Meteo fallback',
+  }));
+}
+
+function hourlyFromOpenMeteo(payload) {
+  const hourly = payload?.hourly || {};
+  return (hourly.time || []).filter((_, index) => index % 4 === 0).slice(0, 7).map((stamp, filteredIndex) => {
+    const sourceIndex = filteredIndex * 4;
+    return {
+      time: time(stamp),
+      temp: Math.round(n(hourly.temperature_2m?.[sourceIndex])),
+      feelsLike: Math.round(n(hourly.apparent_temperature?.[sourceIndex], hourly.temperature_2m?.[sourceIndex])),
+    };
+  });
+}
+
+function uvFromOpenMeteo(payload) {
+  const hourly = payload?.hourly || {};
+  const values = (hourly.uv_index || []).map((value, index) => ({ value: n(value, -1), time: hourly.time?.[index] })).filter((row) => row.value >= 0);
+  const peak = values.reduce((best, row) => (row.value > best.value ? row : best), { value: n(payload?.daily?.uv_index_max?.[0], 0), time: null });
+  return {
+    current: Math.round(n(values[0]?.value, payload?.daily?.uv_index_max?.[0] ?? 0)),
+    peak: Math.round(n(peak.value, 0)),
+    peakTime: peak.time ? time(peak.time) : 'Unavailable',
+    source: 'Open-Meteo UV',
   };
 }
 
@@ -303,20 +398,90 @@ function buildRadarMetadata() {
   return {
     labels: ['Abingdon', 'Bristol', 'Wytheville'],
     legend: ['Light', 'Moderate', 'Heavy', 'Severe'],
-    configured,
-    sourceName: configured ? RADAR_PROVIDER_NAME : 'Not configured',
-    externalUrl: configured ? RADAR_CONTEXT_URL : undefined,
-    statusLabel: configured ? RADAR_PROVIDER_NAME : 'Live radar provider not configured',
+    configured: true,
+    sourceName: configured ? RADAR_PROVIDER_NAME : 'NOAA/NWS radar context',
+    externalUrl: configured ? RADAR_CONTEXT_URL : 'https://radar.weather.gov/',
+    statusLabel: configured ? RADAR_PROVIDER_NAME : 'NOAA/NWS radar link configured',
+    updatedAt: new Date().toISOString(),
+    isPlaceholder: !configured,
   };
 }
 
-function buildPrecipitation(current) {
-  const today = Number(n(current.precipToday, 0).toFixed(2));
+function mergeForecastAmounts(forecast = [], openMeteoForecast = [], source = 'Forecast') {
+  return forecast.map((day, index) => {
+    const fallback = openMeteoForecast[index] || {};
+    return {
+      ...day,
+      precipitationAmount: maybeNumber(day.precipitationAmount) ?? maybeNumber(fallback.precipitationAmount) ?? 0,
+      snowfallAmount: maybeNumber(day.snowfallAmount) ?? maybeNumber(fallback.snowfallAmount) ?? 0,
+      windGust: maybeNumber(day.windGust) ?? maybeNumber(fallback.windGust),
+      source: day.source || source,
+    };
+  });
+}
+
+function buildPrecipitation(current, forecast = [], hasPws = false) {
+  const todaySourceValue = maybeNumber(current.precipToday);
+  const todayForecastValue = maybeNumber(forecast[0]?.precipitationAmount);
+  const today = todaySourceValue ?? todayForecastValue;
+  const week = forecast.length ? sumNumbers(forecast.map((day) => day.precipitationAmount)) : null;
   return {
     today,
-    week: Number((today * 2.15).toFixed(2)),
-    month: Number((today * 5.18).toFixed(2)),
-    year: Number((today * 20.6).toFixed(2)),
+    week,
+    month: null,
+    year: null,
+    todayLabel: hasPws ? 'Today station' : 'Today forecast',
+    weekLabel: '7-day forecast',
+    monthLabel: 'History unavailable',
+    yearLabel: 'History unavailable',
+    source: hasPws ? 'Weather Underground PWS + forecast' : 'Forecast fallback',
+  };
+}
+
+function buildLightning(forecast = []) {
+  const stormRisk = forecast.some((day) => /thunder/i.test(day.condition || ''));
+  return {
+    total: null,
+    nearStation: null,
+    cloudStrikes: null,
+    cloudToGround: null,
+    source: XWEATHER_CLIENT_ID && XWEATHER_CLIENT_SECRET ? 'Xweather not connected' : 'Not configured',
+    statusLabel: stormRisk ? 'Thunderstorm risk in forecast; no live strike source configured' : 'Live strike source not configured',
+    lastStrikeTime: null,
+    closestStrikeDistance: null,
+  };
+}
+
+function moonPhaseForDate(date = new Date()) {
+  const synodicMonth = 29.530588853;
+  const knownNewMoon = Date.UTC(2000, 0, 6, 18, 14);
+  const days = (date.getTime() - knownNewMoon) / 86400000;
+  const age = ((days % synodicMonth) + synodicMonth) % synodicMonth;
+  const phaseValue = age / synodicMonth;
+  const illumination = Math.round((1 - Math.cos(2 * Math.PI * phaseValue)) * 50);
+  const names = [
+    [1.84566, 'New Moon'],
+    [5.53699, 'Waxing Crescent'],
+    [9.22831, 'First Quarter'],
+    [12.91963, 'Waxing Gibbous'],
+    [16.61096, 'Full Moon'],
+    [20.30228, 'Waning Gibbous'],
+    [23.99361, 'Last Quarter'],
+    [27.68493, 'Waning Crescent'],
+    [synodicMonth, 'New Moon'],
+  ];
+  const phase = names.find(([limit]) => age < limit)?.[1] || 'New Moon';
+  const nextNew = new Date(date.getTime() + (synodicMonth - age) * 86400000);
+  const nextFullOffset = age <= synodicMonth / 2 ? synodicMonth / 2 - age : synodicMonth * 1.5 - age;
+  const nextFull = new Date(date.getTime() + nextFullOffset * 86400000);
+  return {
+    phase,
+    illumination,
+    age: Number(age.toFixed(1)),
+    phaseValue: Number(phaseValue.toFixed(3)),
+    nextFullMoon: nextFull.toLocaleDateString('en-US', { timeZone: TIME_ZONE, month: 'short', day: 'numeric' }),
+    nextNewMoon: nextNew.toLocaleDateString('en-US', { timeZone: TIME_ZONE, month: 'short', day: 'numeric' }),
+    skyEvent: 'Sky watch: no major configured events in the next 7 days',
   };
 }
 
@@ -324,15 +489,30 @@ async function buildWeather() {
   let pws = null;
   let daily = null;
   let bundle = null;
-  let pwsError = '';
-  let forecastError = '';
-  let liveFallbackCurrent = null;
+  let openMeteo = null;
+  const dataSource = {
+    primary: 'Weather Underground PWS',
+    forecast: 'Unavailable',
+    current: 'Unavailable',
+    aqi: AIRNOW_API_KEY ? 'AirNow official AQI' : 'Open-Meteo air quality fallback',
+    radar: RADAR_CONTEXT_URL ? RADAR_PROVIDER_NAME : 'NOAA/NWS radar context',
+    uv: 'Unavailable',
+    lightning: XWEATHER_CLIENT_ID && XWEATHER_CLIENT_SECRET ? 'Xweather configured' : 'Not configured',
+    errors: [],
+  };
+
+  try {
+    openMeteo = await loadOpenMeteoCurrent();
+  } catch (error) {
+    dataSource.errors.push(sourceError('Open-Meteo forecast fallback', error));
+  }
 
   if (WEATHER_KEY) {
     try {
       pws = currentFromPws(await weatherCom('/v2/pws/observations/current', { stationId: STATION_ID, format: 'json', units: 'e' }));
+      dataSource.current = 'Weather Underground PWS';
     } catch (error) {
-      pwsError = cleanProviderReason(error);
+      dataSource.errors.push(sourceError('Weather Underground PWS current', error));
     }
     try {
       const geocode = `${LATITUDE},${LONGITUDE}`;
@@ -347,16 +527,43 @@ async function buildWeather() {
         hourlyTrend: hourlyFromWeatherCom(hourlyPayload),
         alerts: (alertPayload.alerts || []).slice(0, 3).map((alert, index) => ({ id: alert.detailKey || `alert-${index}`, title: alert.eventDescription || alert.headlineText || 'Weather alert', severity: 'advisory' })),
       };
+      dataSource.forecast = 'Weather.com';
     } catch (error) {
-      forecastError = cleanProviderReason(error);
+      dataSource.errors.push(sourceError('Weather.com forecast', error));
+    }
+  } else {
+    dataSource.errors.push({ source: 'Weather Underground PWS', message: 'WEATHER_API_KEY missing' });
+  }
+
+  if (!bundle) {
+    try {
+      bundle = await getNwsBundle();
+      dataSource.forecast = 'NWS';
+    } catch (error) {
+      dataSource.errors.push(sourceError('NWS forecast', error));
     }
   }
 
-  if (!bundle) bundle = await getNwsBundle();
-  if (!pws) liveFallbackCurrent = await loadOpenMeteoCurrent().catch(() => null);
+  const openMeteoForecast = openMeteo ? forecastFromOpenMeteo(openMeteo.payload) : [];
+  if (!bundle && openMeteo) {
+    bundle = {
+      forecast: openMeteoForecast,
+      hourlyTrend: hourlyFromOpenMeteo(openMeteo.payload),
+      alerts: [],
+    };
+    dataSource.forecast = 'Open-Meteo fallback';
+  }
+
+  if (!bundle) throw new Error(dataSource.errors.map((entry) => `${entry.source}: ${entry.message}`).join(' | ') || 'No weather source returned data');
+
+  bundle.forecast = mergeForecastAmounts(bundle.forecast, openMeteoForecast, dataSource.forecast);
+  if (!bundle.hourlyTrend?.length && openMeteo) bundle.hourlyTrend = hourlyFromOpenMeteo(openMeteo.payload);
+
   const airQuality = await loadAirQuality();
   const firstForecast = bundle.forecast[0] || { high: 0, low: 0, condition: 'Unknown', precipitationChance: 0 };
   const firstHourly = bundle.hourlyTrend[0] || { temp: firstForecast.high, feelsLike: firstForecast.high };
+  const liveFallbackCurrent = openMeteo?.current || null;
+  if (!pws && liveFallbackCurrent) dataSource.current = 'Open-Meteo fallback';
   const current = pws || liveFallbackCurrent || {
     temperature: firstHourly.temp,
     feelsLike: firstHourly.feelsLike,
@@ -366,12 +573,16 @@ async function buildWeather() {
     windGust: 0,
     windDirection: 'Unavailable',
     conditionText: firstForecast.condition,
-    precipToday: 0,
+    precipToday: firstForecast.precipitationAmount ?? null,
   };
   const currentCondition = condition(current.conditionText || firstForecast.condition);
-  const rain = Number(n(current.precipToday, 0).toFixed(2));
-  const isStorm = currentCondition === 'Thunderstorms';
   const hasLiveWeather = Boolean(pws || liveFallbackCurrent || bundle);
+  const uvData = daily?.uvIndex?.[0] != null
+    ? { current: Math.round(n(daily.uvIndex[0], 0)), peak: Math.round(n(daily.uvIndex[0], 0)), peakTime: 'Unavailable', source: 'Weather.com' }
+    : uvFromOpenMeteo(openMeteo?.payload || {});
+  dataSource.uv = uvData.source;
+  dataSource.aqi = airQuality.source || dataSource.aqi;
+  const moon = moonPhaseForDate(new Date());
 
   return {
     station: {
@@ -396,26 +607,30 @@ async function buildWeather() {
       windSpeed: Math.round(n(current.windSpeed)),
       windDirection: current.windDirection || 'WNW',
       windGust: Math.round(n(current.windGust)),
-      uvIndex: Math.round(n(daily?.uvIndex?.[0], 2)),
+      uvIndex: uvData.current,
+      uvPeak: uvData.peak,
+      uvPeakTime: uvData.peakTime,
+      uvSource: uvData.source,
     },
     forecast: bundle.forecast,
     hourlyTrend: bundle.hourlyTrend,
     alerts: bundle.alerts,
     airQuality,
-    moon: { phase: daily?.moonPhase?.[0] || 'Waning Gibbous', illumination: n(daily?.moonIllumination?.[0], 76), age: n(daily?.moonAge?.[0], 18.1) },
-    sunMoon: { sunrise: time(daily?.sunriseTimeLocal?.[0]) || '6:16 AM', daylight: '8h 12m', sunset: time(daily?.sunsetTimeLocal?.[0]) || '8:28 PM', moonrise: time(daily?.moonriseTimeLocal?.[0]) || '12:58 AM', visible: '14h 45m', moonset: time(daily?.moonsetTimeLocal?.[0]) || '2:43 PM' },
+    moon: { ...moon, phase: daily?.moonPhase?.[0] || moon.phase, illumination: n(daily?.moonIllumination?.[0], moon.illumination), age: n(daily?.moonAge?.[0], moon.age) },
+    sunMoon: { sunrise: time(daily?.sunriseTimeLocal?.[0]) || time(openMeteo?.payload?.daily?.sunrise?.[0]), daylight: openMeteo?.payload?.daily?.daylight_duration?.[0] ? `${Math.round(openMeteo.payload.daily.daylight_duration[0] / 3600)}h ${Math.round((openMeteo.payload.daily.daylight_duration[0] % 3600) / 60)}m` : 'Unavailable', sunset: time(daily?.sunsetTimeLocal?.[0]) || time(openMeteo?.payload?.daily?.sunset?.[0]), moonrise: time(daily?.moonriseTimeLocal?.[0]), visible: 'Unavailable', moonset: time(daily?.moonsetTimeLocal?.[0]) },
     radar: buildRadarMetadata(),
-    precipitation: buildPrecipitation(current),
-    lightning: { total: isStorm ? 12 : 0, nearStation: isStorm ? 3 : 0, cloudStrikes: isStorm ? 7 : 0, cloudToGround: isStorm ? 2 : 0 },
+    precipitation: buildPrecipitation(current, bundle.forecast, Boolean(pws)),
+    lightning: buildLightning(bundle.forecast),
     stationStatus: {
       online: hasLiveWeather,
       signal: pws ? 98 : hasLiveWeather ? 92 : 0,
       uptime: pws ? '15d 4h' : hasLiveWeather ? 'Live fallback active' : 'Unavailable',
-      lastRestart: pws ? 'Apr 13, 1:22 AM' : hasLiveWeather ? 'Weather Underground PWS unavailable; using live fallback' : (WEATHER_KEY ? (pwsError || forecastError || 'Weather Underground PWS unavailable') : 'WEATHER_API_KEY missing'),
+      lastRestart: pws ? 'Apr 13, 1:22 AM' : hasLiveWeather ? `${dataSource.current}; ${dataSource.forecast}` : dataSource.errors[0]?.message || 'Weather sources unavailable',
       dataQuality: pws ? 'Excellent' : hasLiveWeather ? 'Live fallback' : 'Unavailable',
-      dataQualityScore: pws ? 100 : hasLiveWeather ? 88 : 0,
+      dataQualityScore: pws ? 100 : hasLiveWeather ? 70 : 0,
     },
     camera: { snapshotUrl: process.env.LOREX_CAMERA_SNAPSHOT_URL || process.env.STATION_CAMERA_SNAPSHOT_URL || '', name: process.env.LOREX_CAMERA_NAME || process.env.STATION_CAMERA_NAME || 'Station Camera' },
+    dataSource,
   };
 }
 

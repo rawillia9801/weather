@@ -12,7 +12,7 @@ export function RadarPanel({ radar }: { radar: RadarMetadata }) {
           <path d="M128 -20 C135 60, 170 130, 155 240" className="road" />
           <path d="M8 215 C70 175, 112 160, 178 176 S290 208, 420 165" className="road" />
         </svg>
-        {radar.configured && (
+        {radar.configured && !radar.isPlaceholder && (
           <>
             <div className="radar-rain rain-a" />
             <div className="radar-rain rain-b" />
@@ -37,6 +37,7 @@ export function RadarPanel({ radar }: { radar: RadarMetadata }) {
           Open {radar.sourceName}
         </a>
       )}
+      <div className="panel-source">{radar.sourceName}{radar.updatedAt ? ` • ${new Date(radar.updatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}</div>
     </GlassCard>
   );
 }

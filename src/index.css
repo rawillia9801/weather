@@ -549,6 +549,21 @@
     gap: 4px;
     margin-top: 5px;
   }
+  .forecast-amount {
+    margin-left: auto;
+    color: rgba(255,255,255,.75);
+    font-size: .6rem;
+  }
+  .source-chip, .panel-source {
+    color: rgba(103,232,249,.72);
+    font-size: .54rem;
+    line-height: 1.1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .source-chip { margin-top: 3px; text-align: right; }
+  .panel-source { margin-top: 7px; text-align: right; }
 
   .moon-panel {
     display: flex;
@@ -568,7 +583,7 @@
     background: radial-gradient(circle at 38% 34%, rgba(255,255,255,.75), transparent 7%), radial-gradient(circle at 64% 56%, rgba(0,0,0,.28), transparent 10%), radial-gradient(circle at 45% 66%, rgba(0,0,0,.24), transparent 8%), radial-gradient(circle at 42% 38%, #f8fafc, #94a3b8 48%, #334155 100%);
     box-shadow: 0 0 36px rgba(191,219,254,.35);
   }
-  .moon-orb::after { content: ""; position: absolute; inset: 0 38% 0 0; border-radius: inherit; background: rgba(2,8,18,.28); }
+  .moon-orb::after { content: ""; position: absolute; inset: 0 var(--moon-shadow, 38%) 0 0; border-radius: inherit; background: linear-gradient(90deg, rgba(2,8,18,.46), rgba(2,8,18,.12)); }
   .moon-copy {
     position: relative;
     z-index: 10;
@@ -586,6 +601,14 @@
     margin-top: 5px;
     color: rgba(255,255,255,.82);
     font-size: .66rem;
+  }
+  .moon-event {
+    margin-top: 4px;
+    color: rgba(103,232,249,.78);
+    font-size: .58rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .radar-panel, .air-panel, .sunmoon-panel, .trend-panel, .detail-panel, .tile-panel { padding: 10px; min-height: 132px; }

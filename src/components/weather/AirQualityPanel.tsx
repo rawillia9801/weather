@@ -28,7 +28,7 @@ export function AirQualityPanel({ airQuality }: { airQuality: AirQuality }) {
         <CheckCircle2 className="h-4 w-4" />
         <span>{airQuality.message}</span>
       </div>
-      {airQuality.source && <div className="aqi-source">Source: {airQuality.source}</div>}
+      {airQuality.source && <div className="aqi-source">Source: {airQuality.source}{airQuality.pollutantDriver ? ` • Driver: ${airQuality.pollutantDriver}` : ''}</div>}
     </GlassCard>
   );
 }

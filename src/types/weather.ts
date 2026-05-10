@@ -38,14 +38,22 @@ export interface CurrentConditions {
   windDirection: string;
   windGust: number;
   uvIndex: number;
+  uvPeak?: number;
+  uvPeakTime?: string;
+  uvSource?: string;
 }
 
 export interface ForecastDay {
   day: string;
+  date?: string;
   condition: WeatherCondition;
   high: number;
   low: number;
   precipitationChance: number;
+  precipitationAmount?: number;
+  snowfallAmount?: number;
+  windGust?: number;
+  source?: string;
 }
 
 export interface Alert {
@@ -61,12 +69,17 @@ export interface AirQuality {
   pollutants: { label: string; value: number | string }[];
   source?: string;
   updatedAt?: string | null;
+  pollutantDriver?: string;
 }
 
 export interface MoonData {
   phase: string;
   illumination: number;
   age: number;
+  phaseValue?: number;
+  nextFullMoon?: string;
+  nextNewMoon?: string;
+  skyEvent?: string;
 }
 
 export interface SunMoonData {
@@ -79,17 +92,26 @@ export interface SunMoonData {
 }
 
 export interface PrecipitationData {
-  today: number;
-  week: number;
-  month: number;
-  year: number;
+  today: number | null;
+  week: number | null;
+  month: number | null;
+  year: number | null;
+  todayLabel?: string;
+  weekLabel?: string;
+  monthLabel?: string;
+  yearLabel?: string;
+  source?: string;
 }
 
 export interface LightningData {
-  total: number;
-  nearStation: number;
-  cloudStrikes: number;
-  cloudToGround: number;
+  total: number | null;
+  nearStation: number | null;
+  cloudStrikes: number | null;
+  cloudToGround: number | null;
+  source?: string;
+  statusLabel?: string;
+  lastStrikeTime?: string | null;
+  closestStrikeDistance?: number | null;
 }
 
 export interface StationStatus {
@@ -114,6 +136,19 @@ export interface RadarMetadata {
   sourceName: string;
   externalUrl?: string;
   statusLabel: string;
+  updatedAt?: string | null;
+  isPlaceholder?: boolean;
+}
+
+export interface WeatherSourceStatus {
+  primary: string;
+  forecast: string;
+  current: string;
+  aqi: string;
+  radar: string;
+  uv: string;
+  lightning: string;
+  errors: { source: string; message: string }[];
 }
 
 export interface WeatherStationData {
@@ -130,6 +165,7 @@ export interface WeatherStationData {
   precipitation: PrecipitationData;
   lightning: LightningData;
   stationStatus: StationStatus;
+  dataSource?: WeatherSourceStatus;
   camera: {
     snapshotUrl: string;
     name: string;

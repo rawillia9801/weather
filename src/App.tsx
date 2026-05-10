@@ -325,7 +325,7 @@ function HistoryPage({ data }: { data: WeatherStationData }) {
         ['Highest temperature', `${Math.max(...data.hourlyTrend.map((p) => p.temp))}F`],
         ['Lowest temperature', `${Math.min(...data.hourlyTrend.map((p) => p.temp))}F`],
         ['Peak wind gust', `${data.current.windGust} mph`],
-        ['Rainfall today', `${data.precipitation.today.toFixed(2)} in`],
+        ['Rainfall today', data.precipitation.today == null ? 'Unavailable' : `${data.precipitation.today.toFixed(2)} in`],
         ['Current humidity', `${data.current.humidity}%`],
         ['Current pressure', `${data.current.pressure} inHg`],
       ];

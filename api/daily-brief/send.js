@@ -24,21 +24,21 @@ export default async function handler(req, res) {
     const subject = body.subject || (schedule.subject_template
       ? String(schedule.subject_template).replace('{{date}}', new Date(data.generatedAt).toLocaleDateString('en-US', { timeZone: schedule.timezone || cfg.timeZone }))
       : briefSubject(data));
-    const payload = {
-      stationId: data.stationId,
-      stationName: data.stationName,
-      location: data.location,
-      generatedAt: data.generatedAt,
-      subject,
-      html: renderDailyBriefHtml(data),
-      text: renderDailyBriefText(data),
-      sms: renderDailyBriefSms(data),
-      data,
-    };
     const recipients = contacts.filter((contact) => contact.email_enabled && contact.email);
     if (!recipients.length) return res.status(400).json({ error: 'No email-enabled contacts are configured in Supabase' });
     const emailResults = [];
     for (const contact of recipients) {
+      const payload = {
+        stationId: data.stationId,
+        stationName: data.stationName,
+        location: data.location,
+        generatedAt: data.generatedAt,
+        subject,
+        html: renderDailyBriefHtml(data, contact),
+        text: renderDailyBriefText(data, contact),
+        sms: renderDailyBriefSms(data, contact),
+        data,
+      };
       emailResults.push(await sendEmail(contact, payload));
     }
     return res.status(200).json({ ok: emailResults.every((result) => result.ok), emailResults, smsResults: [] });

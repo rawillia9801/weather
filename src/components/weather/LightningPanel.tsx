@@ -16,11 +16,12 @@ export function LightningPanel({ lightning }: { lightning: LightningData }) {
       <div className="stat-tiles">
         {stats.map(([label, value]) => (
           <div key={label}>
-            <strong>{value}</strong>
+            <strong>{typeof value === 'number' ? value : 'N/A'}</strong>
             <small>{label}</small>
           </div>
         ))}
       </div>
+      <div className="panel-source">{lightning.statusLabel || lightning.source || 'Live strike source not configured'}</div>
     </GlassCard>
   );
 }

@@ -4,10 +4,10 @@ import { GlassCard } from '../ui/GlassCard';
 
 export function PrecipitationPanel({ precipitation }: { precipitation: PrecipitationData }) {
   const stats = [
-    ['Today', precipitation.today],
-    ['Week', precipitation.week],
-    ['Month', precipitation.month],
-    ['Year', precipitation.year],
+    [precipitation.todayLabel || 'Today', precipitation.today],
+    [precipitation.weekLabel || 'Week', precipitation.week],
+    [precipitation.monthLabel || 'Month', precipitation.month],
+    [precipitation.yearLabel || 'Year', precipitation.year],
   ];
 
   return (
@@ -16,11 +16,12 @@ export function PrecipitationPanel({ precipitation }: { precipitation: Precipita
       <div className="stat-tiles">
         {stats.map(([label, value]) => (
           <div key={label}>
-            <strong>{Number(value).toFixed(2)}<span> in</span></strong>
+            <strong>{typeof value === 'number' ? value.toFixed(2) : 'N/A'}{typeof value === 'number' && <span> in</span>}</strong>
             <small>{label}</small>
           </div>
         ))}
       </div>
+      {precipitation.source && <div className="panel-source">{precipitation.source}</div>}
     </GlassCard>
   );
 }
