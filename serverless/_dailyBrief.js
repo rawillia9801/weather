@@ -256,7 +256,15 @@ export function renderTemplateText(template, data, contact) {
 }
 
 export function renderTextAsHtml(text, subject = 'Staley Street Weather Daily Brief') {
-  return `<!doctype html><html><body style="margin:0;background:#06111e;color:#f8fafc;font-family:Arial,sans-serif"><main style="max-width:760px;margin:auto;padding:24px"><h1 style="color:#67e8f9;margin:0 0 16px">${escapeHtml(subject)}</h1><section style="background:#0b1f33;border:1px solid #0ea5e9;border-radius:14px;padding:18px;white-space:pre-wrap;line-height:1.55">${escapeHtml(text)}</section></main></body></html>`;
+  const sections = String(text).split(/\n{2,}/).filter(Boolean);
+  const intro = sections.slice(0, 4).map((section) => `<p style="margin:0 0 10px;line-height:1.5">${escapeHtml(section)}</p>`).join('');
+  const cards = sections.slice(4).map((section) => {
+    const [title, ...rest] = section.split('\n');
+    return `<td style="padding:6px;vertical-align:top"><table role="presentation" style="width:100%;border-collapse:separate;border-spacing:0;background:#0b1f33;border:1px solid #0ea5e9;border-radius:12px"><tr><td style="padding:12px"><h3 style="margin:0 0 8px;color:#67e8f9;font-size:13px;letter-spacing:.08em;text-transform:uppercase">${escapeHtml(title)}</h3><p style="margin:0;white-space:pre-wrap;line-height:1.45">${escapeHtml(rest.join('\n'))}</p></td></tr></table></td>`;
+  });
+  const rows = [];
+  for (let index = 0; index < cards.length; index += 2) rows.push(`<tr>${cards.slice(index, index + 2).join('')}</tr>`);
+  return `<!doctype html><html><body style="margin:0;background:#06111e;color:#f8fafc;font-family:Arial,sans-serif"><main style="max-width:760px;margin:auto;padding:24px"><h1 style="color:#67e8f9;margin:0 0 16px">${escapeHtml(subject)}</h1><section style="background:#071827;border:1px solid #0ea5e9;border-radius:14px;padding:18px;margin:0 0 12px">${intro}</section><table role="presentation" style="width:100%;border-collapse:separate;border-spacing:0">${rows.join('')}</table></main></body></html>`;
 }
 
 export function renderDailyBriefHtml(data, contact) {
