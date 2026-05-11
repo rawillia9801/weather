@@ -1,4 +1,5 @@
 import { briefSubject, buildDailyBriefData, DEFAULT_TEXT_TEMPLATE, loadBriefInputs, renderDailyBriefHtml, renderDailyBriefSms, renderTemplateText, renderTextAsHtml, sendEmail } from './_dailyBrief.js';
+import { applyExternalBriefSources, loadExternalBriefSources } from './_externalBriefSources.js';
 import { cfg } from './_env.js';
 import { safeSelect } from './_supabase.js';
 
@@ -20,7 +21,9 @@ export default async function handler(req, res) {
 
   try {
     const { weather, contacts, schedule, localEvents } = await loadBriefInputs(req);
-    const data = buildDailyBriefData(weather, schedule, localEvents);
+    const baseData = buildDailyBriefData(weather, schedule, localEvents);
+    const external = await loadExternalBriefSources(baseData).catch(() => ({}));
+    const data = applyExternalBriefSources(baseData, external);
     const body = parseBody(req);
     const subject = body.subject || (schedule.subject_template
       ? String(schedule.subject_template).replace('{{date}}', new Date(data.generatedAt).toLocaleDateString('en-US', { timeZone: schedule.timezone || cfg.timeZone }))
@@ -32,14 +35,15 @@ export default async function handler(req, res) {
     if (!recipients.length) return res.status(400).json({ error: 'No email-enabled contacts are configured in Supabase' });
     const emailResults = [];
     for (const contact of recipients) {
+      const text = renderTemplateText(template, data, contact);
       const payload = {
         stationId: data.stationId,
         stationName: data.stationName,
         location: data.location,
         generatedAt: data.generatedAt,
         subject,
-        html: renderTextAsHtml(renderTemplateText(template, data, contact), subject) || renderDailyBriefHtml(data, contact),
-        text: renderTemplateText(template, data, contact),
+        html: renderTextAsHtml(text, subject) || renderDailyBriefHtml(data, contact),
+        text,
         sms: renderDailyBriefSms(data, contact),
         data,
       };
