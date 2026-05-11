@@ -1,11 +1,14 @@
 import { briefSubject, buildDailyBriefData, DEFAULT_TEXT_TEMPLATE, loadBriefInputs, renderDailyBriefHtml, renderDailyBriefSms, renderTemplateText, renderTextAsHtml } from './_dailyBrief.js';
+import { applyExternalBriefSources, loadExternalBriefSources } from './_externalBriefSources.js';
 import { cfg } from './_env.js';
 import { safeSelect } from './_supabase.js';
 
 export default async function handler(req, res) {
   try {
     const { weather, contacts, schedule, logs, localEvents } = await loadBriefInputs(req);
-    const data = buildDailyBriefData(weather, schedule, localEvents);
+    const baseData = buildDailyBriefData(weather, schedule, localEvents);
+    const external = await loadExternalBriefSources(baseData).catch(() => ({}));
+    const data = applyExternalBriefSources(baseData, external);
     const subject = schedule.subject_template
       ? String(schedule.subject_template).replace('{{date}}', new Date(data.generatedAt).toLocaleDateString('en-US', { timeZone: schedule.timezone || cfg.timeZone }))
       : briefSubject(data);
