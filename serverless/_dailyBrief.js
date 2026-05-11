@@ -15,8 +15,8 @@ Source: {{source}}
 
 Today should reach about {{high}}F{{highTimeSummary}}, with a low near {{low}}F tonight. Winds are {{current.windDirection}} at {{current.windSpeed}} mph with gusts near {{current.windGust}} mph.
 
-Rain chances today are {{today.precipChance}}%, with an estimated total of {{today.precipAmount}} inches.
-{{precipTimingSummary}}
+Precipitation Outlook
+{{precipNarrative}}
 
 Air Quality
 {{airQuality.summary}}
@@ -154,6 +154,7 @@ export function buildDailyBriefData(weatherData, schedule = {}, localEvents = []
     low: firstForecast.low ?? current.low,
     highTimeSummary: ' around the warmest afternoon window',
     precipTimingSummary: precipitationTimingSummary(weatherData),
+    precipNarrative: precipitationNarrative(weatherData),
     dailyStory: dailyStory(weatherData),
     happeningTodayText: categorizedEvents(localEvents, generatedAt, 'happening'),
     driveInText: categorizedEvents(localEvents, generatedAt, 'drive-in'),
@@ -200,7 +201,7 @@ function dailyStory(data) {
   const warmup = today.high == null ? 'The high temperature timing is unavailable from the current source.' : `The day should build toward ${today.high}F${today.low != null ? ` before easing back toward ${today.low}F tonight` : ''}.`;
   const uvPeak = current.uvPeak == null ? '' : ` UV is ${current.uvIndex} now and should peak near ${current.uvPeak}${current.uvPeakTime && current.uvPeakTime !== 'Unavailable' ? ` around ${current.uvPeakTime}` : ''}.`;
   const aqi = data.airQuality?.aqi == null ? 'Air quality is unavailable from the current source.' : `Air quality is ${data.airQuality.label} with an AQI of ${data.airQuality.aqi}.`;
-  return `Right now in ${data.station.location}, it is ${current.temperature}F and ${condition}, with a feels-like temperature of ${current.feelsLike}F. ${warmup} Winds are ${current.windDirection} at ${current.windSpeed} mph with gusts near ${current.windGust} mph. Pressure is ${current.pressure} inHg. ${precipitationTimingSummary(data)}${uvPeak} ${aqi}`.replace(/\s+/g, ' ').trim();
+  return `Right now in ${data.station.location}, it is ${current.temperature}F and ${condition}, with a feels-like temperature of ${current.feelsLike}F. ${warmup} Winds are ${current.windDirection} at ${current.windSpeed} mph with gusts near ${current.windGust} mph. Pressure is ${current.pressure} inHg. ${precipitationNarrative(data)}${uvPeak} ${aqi}`.replace(/\s+/g, ' ').trim();
 }
 
 export function briefSubject(data) {
@@ -261,7 +262,19 @@ function precipitationTimingSummary(data) {
   const chance = Number(today.precipitationChance || 0);
   const snow = Number(today.snowfallAmount || 0);
   if (chance <= 10 && amount <= 0 && snow <= 0) return 'No meaningful rain or snow is expected today.';
+  if (chance > 20 && amount <= 0 && snow <= 0) return 'Rain or storms are possible, but this source is not providing a measurable amount or timing window.';
   return 'Specific rain or snow timing is unavailable from the current source.';
+}
+
+function precipitationNarrative(data) {
+  const today = data.forecast?.[0] || {};
+  const amount = Number(today.precipitationAmount || 0);
+  const chance = Number(today.precipitationChance || 0);
+  const snow = Number(today.snowfallAmount || 0);
+  if (chance <= 10 && amount <= 0 && snow <= 0) return 'No meaningful rain or snow is expected today.';
+  if (chance > 20 && amount <= 0 && snow <= 0) return `Rain chances are ${chance}%, but the active forecast source is not providing a measurable precipitation total. Treat this as a chance-driven rain window rather than a guaranteed rainfall amount.`;
+  if (snow > 0) return `Snow is possible with an estimated ${snow.toFixed(1)} inches from the current source. ${precipitationTimingSummary(data)}`;
+  return `Rain chances are ${chance}%, with an estimated total near ${amount.toFixed(2)} inches. ${precipitationTimingSummary(data)}`;
 }
 
 export function renderDailyBriefText(data, contact) {
@@ -287,6 +300,7 @@ export function renderTemplateText(template, data, contact) {
     forecastText: outlook,
     alertsText: alerts,
     precipTimingSummary: data.precipTimingSummary,
+    precipNarrative: data.precipNarrative,
     happeningTodayText: data.happeningTodayText,
     driveInText: data.driveInText,
     festivalText: data.festivalText,
@@ -303,7 +317,7 @@ export function renderTemplateText(template, data, contact) {
     'current.humidity': data.current.humidity,
     'current.pressure': data.current.pressure,
     'today.precipChance': data.forecast[0]?.precipitationChance ?? 0,
-    'today.precipAmount': Number(data.forecast[0]?.precipitationAmount || 0).toFixed(2),
+    'today.precipAmount': Number(data.forecast[0]?.precipitationAmount || 0) > 0 ? Number(data.forecast[0]?.precipitationAmount || 0).toFixed(2) : 'unavailable/near 0.00',
     'airQuality.summary': aqiText,
     'groundCondition.label': data.groundCondition.label,
     'groundCondition.summary': data.groundCondition.summary,

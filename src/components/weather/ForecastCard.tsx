@@ -1,4 +1,4 @@
-import { Droplet } from 'lucide-react';
+import { Cloud, Droplet, Snowflake } from 'lucide-react';
 import type { ForecastDay } from '../../types/weather';
 import { getConditionIcon, getConditionTheme } from '../../lib/weatherThemes';
 import { ConditionBackdrop } from './ConditionBackdrop';
@@ -12,6 +12,9 @@ export function ForecastCard({ forecast }: { forecast: ForecastDay }) {
   const amountLabel = typeof forecast.snowfallAmount === 'number' && forecast.snowfallAmount > 0
     ? `Snow ${forecast.snowfallAmount.toFixed(1)} in`
     : precipAmount;
+  const isWet = forecast.precipitationChance > 10 || /rain|showers|storm/i.test(forecast.condition);
+  const isSnow = /snow|freezing/i.test(forecast.condition) || (typeof forecast.snowfallAmount === 'number' && forecast.snowfallAmount > 0);
+  const PrecipIcon = isSnow ? Snowflake : isWet ? Droplet : Cloud;
 
   return (
     <ConditionBackdrop condition={forecast.condition} className="forecast-card">
@@ -27,7 +30,7 @@ export function ForecastCard({ forecast }: { forecast: ForecastDay }) {
           </div>
           <div className="forecast-label">{theme.label}</div>
           <div className="forecast-pop">
-            <Droplet className="h-4 w-4 text-cyan-300" />
+            <PrecipIcon className={isWet || isSnow ? 'h-4 w-4 text-cyan-300' : 'h-4 w-4 text-white/45'} />
             <span>{forecast.precipitationChance}%</span>
             <span className="forecast-amount">{amountLabel}</span>
           </div>

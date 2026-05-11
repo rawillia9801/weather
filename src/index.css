@@ -580,13 +580,19 @@
     width: clamp(78px, 6vw, 104px);
     height: clamp(78px, 6vw, 104px);
     border-radius: 999px;
-    background: radial-gradient(circle at 32% 28%, rgba(255,255,255,.82), transparent 6%), radial-gradient(circle at 62% 56%, rgba(0,0,0,.36), transparent 9%), radial-gradient(circle at 46% 68%, rgba(0,0,0,.3), transparent 7%), radial-gradient(circle at 71% 34%, rgba(0,0,0,.22), transparent 5%), radial-gradient(circle at 39% 47%, rgba(0,0,0,.2), transparent 4%), radial-gradient(circle at 42% 38%, #f8fafc, #9ca3af 48%, #334155 100%);
-    box-shadow: 0 0 36px rgba(191,219,254,.35);
+    background:
+      radial-gradient(circle at 32% 28%, rgba(255,255,255,.86), transparent 5%),
+      radial-gradient(circle at 62% 56%, rgba(15,23,42,.42), transparent 9%),
+      radial-gradient(circle at 46% 68%, rgba(15,23,42,.34), transparent 7%),
+      radial-gradient(circle at 71% 34%, rgba(15,23,42,.28), transparent 5%),
+      radial-gradient(circle at 39% 47%, rgba(15,23,42,.24), transparent 4%),
+      radial-gradient(circle at 52% 50%, #f8fafc 0 18%, #cbd5e1 40%, #64748b 68%, #1e293b 100%);
+    box-shadow: inset -14px -10px 22px rgba(15,23,42,.35), inset 8px 6px 14px rgba(255,255,255,.18), 0 0 42px rgba(191,219,254,.35);
   }
-  .moon-orb::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: repeating-radial-gradient(circle at 50% 50%, rgba(255,255,255,.12) 0 1px, transparent 1px 7px); mix-blend-mode: overlay; opacity: .55; }
-  .moon-orb::after { content: ""; position: absolute; border-radius: inherit; background: radial-gradient(ellipse at center, rgba(2,8,18,.72), rgba(2,8,18,.42) 52%, rgba(2,8,18,.06) 72%); }
-  .moon-orb-waxing::after { inset: 0 0 0 var(--moon-shadow, 38%); border-top-left-radius: 45%; border-bottom-left-radius: 45%; }
-  .moon-orb-waning::after { inset: 0 var(--moon-shadow, 38%) 0 0; border-top-right-radius: 45%; border-bottom-right-radius: 45%; }
+  .moon-orb::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: repeating-radial-gradient(circle at 48% 48%, rgba(255,255,255,.12) 0 1px, transparent 1px 6px), radial-gradient(circle at 28% 62%, rgba(255,255,255,.16), transparent 12%), radial-gradient(circle at 67% 48%, rgba(255,255,255,.12), transparent 11%); mix-blend-mode: overlay; opacity: .75; }
+  .moon-orb::after { content: ""; position: absolute; top: -1px; bottom: -1px; background: radial-gradient(ellipse at center, rgba(2,8,18,.94), rgba(2,8,18,.76) 58%, rgba(2,8,18,.12) 78%); filter: blur(.2px); }
+  .moon-orb-waxing::after { left: -1px; right: var(--moon-lit, 50%); border-radius: 999px 42% 42% 999px; }
+  .moon-orb-waning::after { left: var(--moon-lit, 50%); right: -1px; border-radius: 42% 999px 999px 42%; }
   .moon-copy {
     position: relative;
     z-index: 10;
@@ -620,9 +626,12 @@
   .radar-terrain { position: absolute; inset: auto; border-radius: 999px; filter: blur(10px); opacity: .46; }
   .terrain-a { left: 2%; top: 8%; width: 42%; height: 70%; background: radial-gradient(circle, rgba(34,197,94,.38), rgba(8,47,73,.08) 62%, transparent 70%); }
   .terrain-b { right: 4%; top: 12%; width: 44%; height: 80%; background: radial-gradient(circle, rgba(14,165,233,.18), rgba(21,128,61,.18) 40%, transparent 72%); }
+  .terrain-c { left: 42%; top: -18%; width: 36%; height: 120%; background: linear-gradient(110deg, transparent 0 34%, rgba(125,211,252,.2) 35% 43%, transparent 44% 100%); filter: blur(2px); opacity: .58; border-radius: 0; }
   .radar-sweep { position: absolute; left: 46%; top: 55%; width: 180px; height: 180px; transform-origin: 8px 8px; background: conic-gradient(from -35deg, rgba(103,232,249,.24), transparent 18%, transparent); clip-path: polygon(0 0, 100% 0, 0 100%); opacity: .72; animation: radarSweep 8s linear infinite; }
+  .radar-noaa-band { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, transparent 0 16px, rgba(103,232,249,.08) 17px, transparent 18px), repeating-linear-gradient(90deg, transparent 0 22px, rgba(103,232,249,.06) 23px, transparent 24px); mix-blend-mode: screen; opacity: .72; }
   .road { fill: none; stroke: rgba(251,146,60,.45); stroke-width: 1.3; }
   .road-major { stroke: rgba(250,204,21,.5); stroke-width: 1.8; }
+  .radar-county { fill: none; stroke: rgba(148,163,184,.28); stroke-width: 1.2; stroke-dasharray: 8 9; }
   .radar-range { fill: none; stroke: rgba(103,232,249,.22); stroke-width: 1.3; stroke-dasharray: 4 6; }
   .radar-range.inner { stroke: rgba(134,239,172,.18); }
   .radar-rain { position: absolute; border-radius: 45%; filter: blur(6px); opacity: .9; }
@@ -639,6 +648,13 @@
   .radar-crosshair.vertical { top: 0; bottom: 0; left: 49%; width: 1px; }
   .radar-legend { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; margin: 6px 24px 0; color: rgba(255,255,255,.7); font-size: .58rem; text-align: center; }
   .radar-legend::before { content: ""; grid-column: 1 / -1; height: 5px; border-radius: 999px; background: linear-gradient(90deg, #22c55e, #eab308, #f97316, #ef4444, #4c1d95); }
+
+  .sunmoon-panel { position: relative; }
+  .sunmoon-celestials { position: absolute; right: 12px; top: 10px; display: flex; align-items: center; gap: 9px; opacity: .88; }
+  .sun-disc { width: 28px; height: 28px; border-radius: 999px; background: radial-gradient(circle at 42% 42%, #fff7ad, #f59e0b 55%, #7c2d12 100%); box-shadow: 0 0 18px rgba(245,158,11,.55); }
+  .moon-disc-small { width: 24px; height: 24px; border-radius: 999px; background: radial-gradient(circle at 38% 30%, rgba(255,255,255,.86), transparent 5%), radial-gradient(circle at 62% 54%, rgba(15,23,42,.36), transparent 16%), radial-gradient(circle at 42% 45%, #f8fafc, #94a3b8 58%, #1e293b 100%); box-shadow: 0 0 14px rgba(191,219,254,.42); }
+  .orbit-arrow { width: 24px; height: 12px; border-top: 1px solid rgba(226,232,240,.65); border-radius: 999px 999px 0 0; position: relative; }
+  .orbit-arrow::after { content: ""; position: absolute; right: -1px; top: -4px; width: 6px; height: 6px; border-top: 1px solid rgba(226,232,240,.7); border-right: 1px solid rgba(226,232,240,.7); transform: rotate(45deg); }
 
   .aqi-gauge { display: grid; width: 86px; height: 86px; place-items: center; border-radius: 999px; background: conic-gradient(#65ff4d 0 var(--aqi), rgba(14,165,233,.45) var(--aqi) 74%, rgba(255,255,255,.08) 74%); }
   .aqi-gauge > div { display: grid; width: 64px; height: 64px; place-items: center; border-radius: 999px; background: #06111e; line-height: 1; }

@@ -8,8 +8,11 @@ export function RadarPanel({ radar }: { radar: RadarMetadata }) {
       <div className="radar-map">
         <div className="radar-terrain terrain-a" />
         <div className="radar-terrain terrain-b" />
+        <div className="radar-terrain terrain-c" />
         <div className="radar-sweep" />
         <svg viewBox="0 0 500 220" aria-hidden="true">
+          <path d="M-15 26 C74 8, 126 32, 190 20 S326 18, 408 55 S505 62, 535 38" className="radar-county" />
+          <path d="M-20 154 C58 148, 118 132, 196 148 S322 184, 520 158" className="radar-county" />
           <path d="M-30 185 C70 120, 105 142, 170 92 S292 56, 365 30 S450 40, 535 -4" className="road road-major" />
           <path d="M-10 64 C65 90, 135 80, 205 125 S333 170, 510 130" className="road" />
           <path d="M128 -20 C135 60, 170 130, 155 240" className="road" />
@@ -17,13 +20,7 @@ export function RadarPanel({ radar }: { radar: RadarMetadata }) {
           <path d="M250 24 C282 62, 304 96, 292 138 C279 183, 234 198, 197 174 C161 150, 159 98, 188 62 C204 42, 225 31, 250 24Z" className="radar-range" />
           <path d="M250 52 C272 79, 283 104, 276 132 C268 162, 238 173, 213 158 C188 142, 187 108, 206 82 C217 67, 231 57, 250 52Z" className="radar-range inner" />
         </svg>
-        {radar.configured && !radar.isPlaceholder && (
-          <>
-            <div className="radar-rain rain-a" />
-            <div className="radar-rain rain-b" />
-            <div className="radar-rain rain-c" />
-          </>
-        )}
+        <div className="radar-noaa-band" />
         <span className="map-label abingdon">{radar.labels[0]}</span>
         <span className="map-label bristol">{radar.labels[1]}</span>
         <span className="map-label wytheville">{radar.labels[2]}</span>

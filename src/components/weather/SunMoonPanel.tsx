@@ -6,6 +6,11 @@ export function SunMoonPanel({ data }: { data: SunMoonData }) {
   return (
     <GlassCard className="sunmoon-panel">
       <div className="panel-kicker">Sun & Moon</div>
+      <div className="sunmoon-celestials" aria-hidden="true">
+        <span className="sun-disc" />
+        <span className="orbit-arrow" />
+        <span className="moon-disc-small" />
+      </div>
       <svg viewBox="0 0 360 160" className="sunmoon-svg" aria-hidden="true">
         <path d="M35 88 Q180 5 325 88" className="sun-arc" />
         <path d="M35 134 Q180 92 325 134" className="moon-arc" />

@@ -88,15 +88,30 @@ function time(value) {
   return date.toLocaleTimeString('en-US', { timeZone: TIME_ZONE, hour: 'numeric', minute: '2-digit' });
 }
 
-async function getJson(url) {
-  const response = await fetch(url, {
-    headers: {
-      Accept: 'application/json',
-      'User-Agent': 'StaleyStreetWeather/1.0',
-    },
-  });
-  if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-  return response.json();
+async function getJson(url, attempts = 2) {
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const response = await fetch(url, {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'StaleyStreetWeather/1.0',
+      },
+    });
+    const text = await response.text().catch(() => '');
+    if (!response.ok) {
+      lastError = new Error(`${response.status} ${response.statusText}`);
+    } else if (!text.trim()) {
+      lastError = new Error(`${response.status} ${response.statusText}: Empty provider response`);
+    } else {
+      try {
+        return JSON.parse(text);
+      } catch {
+        lastError = new Error(`${response.status} ${response.statusText}: Malformed provider JSON`);
+      }
+    }
+    if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, 350));
+  }
+  throw lastError || new Error('Provider request failed');
 }
 
 async function weatherCom(path, params) {

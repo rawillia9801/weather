@@ -156,18 +156,30 @@ function compactTime(value) {
   });
 }
 
-async function getJson(url) {
-  const response = await fetch(url, {
-    headers: {
-      Accept: 'application/json',
-      'User-Agent': 'StaleyStreetWeather/1.0 hello@staleyclimate.info',
-    },
-  });
-  if (!response.ok) {
-    const body = await response.text().catch(() => '');
-    throw new Error(`${response.status} ${response.statusText}: ${body.slice(0, 180)}`);
+async function getJson(url, attempts = 2) {
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const response = await fetch(url, {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'StaleyStreetWeather/1.0 hello@staleyclimate.info',
+      },
+    });
+    const text = await response.text().catch(() => '');
+    if (!response.ok) {
+      lastError = new Error(`${response.status} ${response.statusText}: ${text.slice(0, 180)}`);
+    } else if (!text.trim()) {
+      lastError = new Error(`${response.status} ${response.statusText}: Empty provider response`);
+    } else {
+      try {
+        return JSON.parse(text);
+      } catch {
+        lastError = new Error(`${response.status} ${response.statusText}: Malformed provider JSON`);
+      }
+    }
+    if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, 350));
   }
-  return response.json();
+  throw lastError || new Error('Provider request failed');
 }
 
 function cleanProviderReason(error) {
@@ -1089,8 +1101,14 @@ function renderDailyBriefText(data, contact) {
   const outlook = data.forecast.map((day) => `${day.day}\n${day.condition}\nHigh ${day.high} | Low ${day.low} | Rain ${day.precipitationChance}% | Amt ${Number(day.precipitationAmount || 0).toFixed(2)} in`).join('\n\n');
   const aqiText = data.airQuality.aqi == null ? 'Unavailable - AQI source is not configured' : `${data.airQuality.aqi} ${data.airQuality.label}`;
   const precipChance = data.forecast[0]?.precipitationChance ?? 0;
-  const precipAmount = Number(data.forecast[0]?.precipitationAmount || 0).toFixed(2);
-  const story = `Right now in ${data.location}, it is ${data.current.temperature}F and ${data.current.condition}, with a feels-like temperature of ${data.current.feelsLike}F. The day should work toward ${data.high}F before easing back near ${data.low}F tonight. Winds are ${data.current.windDirection} at ${data.current.windSpeed} mph with gusts near ${data.current.windGust} mph, and pressure is ${data.current.pressure} inHg. ${precipChance ? `Rain chances are ${precipChance}%, with an estimated total of ${precipAmount} inches.` : 'No meaningful rain or snow is expected today from the current source.'} UV is ${data.current.uvIndex}${data.current.uvPeak ? ` and should peak near ${data.current.uvPeak}${data.current.uvPeakTime && data.current.uvPeakTime !== 'Unavailable' ? ` around ${data.current.uvPeakTime}` : ''}` : ''}. Air quality is ${aqiText}.`;
+  const rawPrecipAmount = Number(data.forecast[0]?.precipitationAmount || 0);
+  const precipAmount = rawPrecipAmount.toFixed(2);
+  const precipSentence = precipChance > 20 && rawPrecipAmount <= 0
+    ? `Rain chances are ${precipChance}%, but the active forecast source is not providing a measurable precipitation total. Treat this as a chance-driven rain window rather than a guaranteed rainfall amount.`
+    : precipChance
+      ? `Rain chances are ${precipChance}%, with an estimated total near ${precipAmount} inches.`
+      : 'No meaningful rain or snow is expected today from the current source.';
+  const story = `Right now in ${data.location}, it is ${data.current.temperature}F and ${data.current.condition}, with a feels-like temperature of ${data.current.feelsLike}F. The day should work toward ${data.high}F before easing back near ${data.low}F tonight. Winds are ${data.current.windDirection} at ${data.current.windSpeed} mph with gusts near ${data.current.windGust} mph, and pressure is ${data.current.pressure} inHg. ${precipSentence} UV is ${data.current.uvIndex}${data.current.uvPeak ? ` and should peak near ${data.current.uvPeak}${data.current.uvPeakTime && data.current.uvPeakTime !== 'Unavailable' ? ` around ${data.current.uvPeakTime}` : ''}` : ''}. Air quality is ${aqiText}.`;
   return `Live personal weather station\nStaley Street Weather Daily Brief\n\n${greetingFor(contact)}\n\n${story}\n\nStation ${data.stationId}\nUpdated ${data.updatedTime}\nSource: ${data.source}\n\nComfort Dashboard\nHumidity ${data.current.humidity}%\nPressure ${data.current.pressure} inHg\n${data.comfortSummary}\n\nFive-Day Outlook\n\n${outlook}\n\nHappening Today\nNo local events are configured for today.\n\nDrive-In Marion, VA Movie Times/Playing\nNo configured Drive-In or movie-time source is connected yet.\n\nFestivals And Parades\nNo configured festival or parade events are listed for today.\n\nRain And Ground Conditions\nRain today: ${data.rainToday}. Ground estimate: ${data.groundCondition.label}. ${data.groundCondition.summary}\n\nHungry Mother State Park Water Conditions\n${data.waterCondition.waterTemp}\n${data.waterCondition.measuredOrEstimatedNote}\nSurface: ${data.waterCondition.surface}. Rain/clarity: ${data.waterCondition.clarityNote}\n\nSun And Moon\nSunrise ${data.sunMoon.sunrise}\nSunset ${data.sunMoon.sunset}\nMoon ${data.moon.phase} ${data.moon.illumination}%\n${data.moon.skyEvent || ''}\n\nAlerts And Notes\n${alerts}\n\nStation Status\nStation is ${data.stationStatus.online ? 'online' : 'offline'} with data quality ${data.stationStatus.dataQuality}.`;
 }
 

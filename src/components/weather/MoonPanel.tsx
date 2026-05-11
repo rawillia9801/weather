@@ -4,7 +4,7 @@ import { GlassCard } from '../ui/GlassCard';
 
 export function MoonPanel({ moon }: { moon: MoonData }) {
   const phaseValue = typeof moon.phaseValue === 'number' ? moon.phaseValue : 0.5;
-  const shadow = `${Math.max(0, Math.min(96, 100 - moon.illumination))}%`;
+  const lit = `${Math.max(4, Math.min(100, moon.illumination))}%`;
   const moonClass = phaseValue > 0 && phaseValue < 0.5 ? 'moon-orb moon-orb-waxing' : 'moon-orb moon-orb-waning';
   const skyWatch = [moon.nextFullMoon && `Full ${moon.nextFullMoon}`, moon.nextNewMoon && `New ${moon.nextNewMoon}`].filter(Boolean).join(' | ');
 
@@ -15,7 +15,7 @@ export function MoonPanel({ moon }: { moon: MoonData }) {
         <Info className="h-4 w-4 text-white/55" />
       </div>
       <div className="moon-sky">
-        <div className={moonClass} style={{ '--moon-shadow': shadow } as React.CSSProperties} />
+        <div className={moonClass} style={{ '--moon-lit': lit } as React.CSSProperties} />
       </div>
       <div className="moon-copy">
         <div className="moon-phase">{moon.phase}</div>
