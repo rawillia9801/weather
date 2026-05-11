@@ -26,7 +26,8 @@ export default async function handler(req, res) {
       ? String(schedule.subject_template).replace('{{date}}', new Date(data.generatedAt).toLocaleDateString('en-US', { timeZone: schedule.timezone || cfg.timeZone }))
       : briefSubject(data));
     const templates = await safeSelect('daily_brief_templates', [], { select: '*', channel: 'eq.email_text', is_active: 'eq.true', limit: 1 });
-    const template = templates[0]?.template_body || DEFAULT_TEXT_TEMPLATE;
+    const storedTemplate = templates[0]?.template_body || '';
+    const template = storedTemplate.includes('{{dailyStory}}') && storedTemplate.includes('Happening Today') ? storedTemplate : DEFAULT_TEXT_TEMPLATE;
     const recipients = contacts.filter((contact) => contact.email_enabled && contact.email);
     if (!recipients.length) return res.status(400).json({ error: 'No email-enabled contacts are configured in Supabase' });
     const emailResults = [];

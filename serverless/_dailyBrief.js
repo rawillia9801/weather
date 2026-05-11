@@ -7,7 +7,7 @@ Staley Street Weather Daily Brief
 
 {{greeting}}
 
-Right now in {{location}}, it is {{current.temperature}}F and {{current.condition}}, with a feels-like temperature of {{current.feelsLike}}F.
+{{dailyStory}}
 
 Station {{stationId}}
 Updated {{updatedTime}}
@@ -32,6 +32,15 @@ Pressure {{current.pressure}} inHg
 Five-Day Outlook
 
 {{forecastText}}
+
+Happening Today
+{{happeningTodayText}}
+
+Drive-In Marion, VA Movie Times/Playing
+{{driveInText}}
+
+Festivals And Parades
+{{festivalText}}
 
 Local Events
 {{localEventsText}}
@@ -140,11 +149,15 @@ export function buildDailyBriefData(weatherData, schedule = {}, localEvents = []
     moon: weatherData.moon,
     sunMoon: weatherData.sunMoon,
     stationStatus: weatherData.stationStatus,
-    rainToday: `${Number(weatherData.precipitation?.today || 0).toFixed(2)} in`,
+    rainToday: weatherData.precipitation?.today == null ? 'Unavailable' : `${Number(weatherData.precipitation.today).toFixed(2)} in`,
     high: firstForecast.high ?? current.high,
     low: firstForecast.low ?? current.low,
     highTimeSummary: ' around the warmest afternoon window',
     precipTimingSummary: precipitationTimingSummary(weatherData),
+    dailyStory: dailyStory(weatherData),
+    happeningTodayText: categorizedEvents(localEvents, generatedAt, 'happening'),
+    driveInText: categorizedEvents(localEvents, generatedAt, 'drive-in'),
+    festivalText: categorizedEvents(localEvents, generatedAt, 'festival'),
     localEventsText: formatLocalEvents(localEvents, generatedAt),
     skyEventsText: weatherData.moon?.skyEvent || 'No major sky events are configured for the next few days.',
     comfortSummary: generateComfortSummary(weatherData),
@@ -180,6 +193,16 @@ function estimateHungryMotherWaterConditions(data) {
   };
 }
 
+function dailyStory(data) {
+  const current = data.current;
+  const today = data.forecast?.[0] || {};
+  const condition = String(current.condition || today.condition || 'weather').toLowerCase();
+  const warmup = today.high == null ? 'The high temperature timing is unavailable from the current source.' : `The day should build toward ${today.high}F${today.low != null ? ` before easing back toward ${today.low}F tonight` : ''}.`;
+  const uvPeak = current.uvPeak == null ? '' : ` UV is ${current.uvIndex} now and should peak near ${current.uvPeak}${current.uvPeakTime && current.uvPeakTime !== 'Unavailable' ? ` around ${current.uvPeakTime}` : ''}.`;
+  const aqi = data.airQuality?.aqi == null ? 'Air quality is unavailable from the current source.' : `Air quality is ${data.airQuality.label} with an AQI of ${data.airQuality.aqi}.`;
+  return `Right now in ${data.station.location}, it is ${current.temperature}F and ${condition}, with a feels-like temperature of ${current.feelsLike}F. ${warmup} Winds are ${current.windDirection} at ${current.windSpeed} mph with gusts near ${current.windGust} mph. Pressure is ${current.pressure} inHg. ${precipitationTimingSummary(data)}${uvPeak} ${aqi}`.replace(/\s+/g, ' ').trim();
+}
+
 export function briefSubject(data) {
   const date = new Date(data.generatedAt).toLocaleDateString('en-US', { timeZone: cfg.timeZone });
   return `Staley Street Weather Daily Brief - Marion, VA - ${date}`;
@@ -187,7 +210,7 @@ export function briefSubject(data) {
 
 function greetingFor(contact) {
   const name = String(contact?.display_name || '').trim();
-  return name ? `Good Morning, ${name} — here’s your daily weather brief.` : "Good Morning — here’s your daily weather brief.";
+  return name ? `Good Morning, ${name} - here's your daily weather brief.` : "Good Morning - here's your daily weather brief.";
 }
 
 function formatLocalEvents(events = [], generatedAt = new Date().toISOString()) {
@@ -213,6 +236,25 @@ function formatLocalEvents(events = [], generatedAt = new Date().toISOString()) 
   }).join('\n');
 }
 
+function categorizedEvents(events = [], generatedAt = new Date().toISOString(), category = 'happening') {
+  const terms = {
+    happening: [],
+    'drive-in': ['drive', 'movie', 'film', 'theatre', 'theater'],
+    festival: ['festival', 'parade', 'fair', 'market', 'concert', 'music'],
+  }[category] || [];
+  const filtered = terms.length
+    ? events.filter((event) => {
+        const haystack = `${event.title || ''} ${event.venue || ''} ${event.description || ''} ${event.source_name || ''}`.toLowerCase();
+        return terms.some((term) => haystack.includes(term));
+      })
+    : events;
+  const text = formatLocalEvents(filtered, generatedAt);
+  if (text !== 'No local events are configured for today.') return text;
+  if (category === 'drive-in') return 'No configured Drive-In or movie-time source is connected yet.';
+  if (category === 'festival') return 'No configured festival or parade events are listed for today.';
+  return text;
+}
+
 function precipitationTimingSummary(data) {
   const today = data.forecast?.[0] || {};
   const amount = Number(today.precipitationAmount || 0);
@@ -232,6 +274,7 @@ export function renderTemplateText(template, data, contact) {
   const aqiText = data.airQuality?.aqi == null ? 'Unavailable - AQI source is not configured' : `${data.airQuality.aqi} ${data.airQuality.label}`;
   const replacements = {
     greeting: greetingFor(contact),
+    dailyStory: data.dailyStory,
     location: data.location,
     stationId: data.stationId,
     updatedTime: data.updatedTime,
@@ -244,6 +287,9 @@ export function renderTemplateText(template, data, contact) {
     forecastText: outlook,
     alertsText: alerts,
     precipTimingSummary: data.precipTimingSummary,
+    happeningTodayText: data.happeningTodayText,
+    driveInText: data.driveInText,
+    festivalText: data.festivalText,
     localEventsText: data.localEventsText,
     skyEventsText: data.skyEventsText,
     uvPeakSummary: data.current.uvPeak ? `, peak near ${data.current.uvPeak}${data.current.uvPeakTime ? ` around ${data.current.uvPeakTime}` : ''}` : '',

@@ -57,7 +57,14 @@ export function CurrentConditions({ current, overrideCondition }: { current: Cur
             ))}
           </div>
         </MetricCard>
-        <MetricCard title="UV Index" value={`${current.uvIndex}`} label={getUvLabel(current.uvIndex)} icon={Sun} scale={['0', '5', '11+']} accent="#fde047">
+        <MetricCard
+          title="UV Index"
+          value={`${current.uvIndex}`}
+          label={`${getUvLabel(current.uvIndex)}${current.uvPeak != null ? ` / Peak ${current.uvPeak}` : ''}`}
+          icon={Sun}
+          scale={['0', '5', '11+']}
+          accent="#fde047"
+        >
           <div className="uv-bar">
             <span style={{ left: `${Math.min(100, (current.uvIndex / 11) * 100)}%` }} />
           </div>

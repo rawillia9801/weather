@@ -391,12 +391,30 @@ function uvFromOpenMeteo(payload) {
   const hourly = payload?.hourly || {};
   const values = (hourly.uv_index || []).map((value, index) => ({ value: n(value, -1), time: hourly.time?.[index] })).filter((row) => row.value >= 0);
   const peak = values.reduce((best, row) => (row.value > best.value ? row : best), { value: n(payload?.daily?.uv_index_max?.[0], 0), time: null });
+  const now = Date.now();
+  const current = values.reduce((closest, row) => {
+    const rowTime = row.time ? new Date(row.time).getTime() : Number.NaN;
+    if (!Number.isFinite(rowTime)) return closest;
+    const delta = Math.abs(rowTime - now);
+    return delta < closest.delta ? { ...row, delta } : closest;
+  }, { value: n(payload?.daily?.uv_index_max?.[0], 0), time: null, delta: Number.POSITIVE_INFINITY });
   return {
-    current: Math.round(n(values[0]?.value, payload?.daily?.uv_index_max?.[0] ?? 0)),
+    current: Math.round(n(current.value, payload?.daily?.uv_index_max?.[0] ?? 0)),
     peak: Math.round(n(peak.value, 0)),
     peakTime: peak.time ? time(peak.time) : 'Unavailable',
     source: 'Open-Meteo UV',
   };
+}
+
+async function loadPwsDailySummaries() {
+  if (!WEATHER_KEY || !STATION_ID) return [];
+  const payload = await weatherCom('/v2/pws/dailysummary/7day', {
+    stationId: STATION_ID,
+    format: 'json',
+    units: 'e',
+    numericPrecision: 'decimal',
+  });
+  return Array.isArray(payload?.summaries) ? payload.summaries : [];
 }
 
 function buildRadarMetadata() {
@@ -426,21 +444,25 @@ function mergeForecastAmounts(forecast = [], openMeteoForecast = [], source = 'F
   });
 }
 
-function buildPrecipitation(current, forecast = [], hasPws = false) {
+function buildPrecipitation(current, forecast = [], hasPws = false, summaries = []) {
   const todaySourceValue = maybeNumber(current.precipToday);
+  const summaryTotals = summaries.map((summary) => maybeNumber(summary?.imperial?.precipTotal)).filter((value) => value !== null);
+  const latestSummaryValue = summaryTotals.length ? summaryTotals[summaryTotals.length - 1] : null;
   const todayForecastValue = maybeNumber(forecast[0]?.precipitationAmount);
-  const today = todaySourceValue ?? todayForecastValue;
-  const week = forecast.length ? sumNullableNumbers(forecast.map((day) => day.precipitationAmount)) : null;
+  const today = todaySourceValue ?? latestSummaryValue ?? todayForecastValue;
+  const weekActual = summaryTotals.length ? sumNullableNumbers(summaryTotals) : null;
+  const weekForecast = forecast.length ? sumNullableNumbers(forecast.map((day) => day.precipitationAmount)) : null;
+  const week = weekActual ?? weekForecast;
   return {
     today,
     week,
     month: null,
     year: null,
     todayLabel: today == null ? 'Today unavailable' : hasPws ? 'Today actual' : 'Today forecast',
-    weekLabel: week == null ? 'Week unavailable' : 'Week forecast',
+    weekLabel: week == null ? 'Week unavailable' : weekActual == null ? 'Week forecast' : '7-day actual',
     monthLabel: 'Month unavailable',
     yearLabel: 'Year unavailable',
-    source: hasPws ? 'Weather Underground PWS actual + forecast' : 'Forecast fallback',
+    source: summaryTotals.length ? 'Weather Underground PWS daily summaries' : hasPws ? 'Weather Underground PWS actual + forecast' : 'Forecast fallback',
   };
 }
 
@@ -497,6 +519,7 @@ async function buildWeather() {
   let daily = null;
   let bundle = null;
   let openMeteo = null;
+  let pwsSummaries = [];
   const dataSource = {
     primary: 'Weather Underground PWS',
     forecast: 'Unavailable',
@@ -520,6 +543,11 @@ async function buildWeather() {
       dataSource.current = 'Weather Underground PWS';
     } catch (error) {
       dataSource.errors.push(sourceError('Weather Underground PWS current', error));
+    }
+    try {
+      pwsSummaries = await loadPwsDailySummaries();
+    } catch (error) {
+      dataSource.errors.push(sourceError('Weather Underground PWS daily summaries', error));
     }
     try {
       const geocode = `${LATITUDE},${LONGITUDE}`;
@@ -626,7 +654,7 @@ async function buildWeather() {
     moon: { ...moon, phase: daily?.moonPhase?.[0] || moon.phase, illumination: n(daily?.moonIllumination?.[0], moon.illumination), age: n(daily?.moonAge?.[0], moon.age) },
     sunMoon: { sunrise: time(daily?.sunriseTimeLocal?.[0]) || time(openMeteo?.payload?.daily?.sunrise?.[0]), daylight: openMeteo?.payload?.daily?.daylight_duration?.[0] ? `${Math.round(openMeteo.payload.daily.daylight_duration[0] / 3600)}h ${Math.round((openMeteo.payload.daily.daylight_duration[0] % 3600) / 60)}m` : 'Unavailable', sunset: time(daily?.sunsetTimeLocal?.[0]) || time(openMeteo?.payload?.daily?.sunset?.[0]), moonrise: time(daily?.moonriseTimeLocal?.[0]), visible: 'Unavailable', moonset: time(daily?.moonsetTimeLocal?.[0]) },
     radar: buildRadarMetadata(),
-    precipitation: buildPrecipitation(current, bundle.forecast, Boolean(pws)),
+    precipitation: buildPrecipitation(current, bundle.forecast, Boolean(pws), pwsSummaries),
     lightning: buildLightning(bundle.forecast),
     stationStatus: {
       online: Boolean(pws),

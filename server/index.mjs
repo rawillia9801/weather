@@ -379,6 +379,44 @@ async function loadOpenMeteoCurrent() {
   };
 }
 
+async function loadOpenMeteoUv() {
+  const url = new URL('https://api.open-meteo.com/v1/forecast');
+  url.searchParams.set('latitude', String(cfg.latitude));
+  url.searchParams.set('longitude', String(cfg.longitude));
+  url.searchParams.set('hourly', 'uv_index');
+  url.searchParams.set('daily', 'uv_index_max');
+  url.searchParams.set('timezone', cfg.timeZone);
+  url.searchParams.set('forecast_days', '2');
+  const payload = await getJson(url);
+  const rows = (payload?.hourly?.uv_index || [])
+    .map((value, index) => ({ value: f(value, -1), time: payload?.hourly?.time?.[index] }))
+    .filter((row) => row.value >= 0);
+  const now = Date.now();
+  const current = rows.reduce((closest, row) => {
+    const rowTime = row.time ? new Date(row.time).getTime() : Number.NaN;
+    if (!Number.isFinite(rowTime)) return closest;
+    const delta = Math.abs(rowTime - now);
+    return delta < closest.delta ? { ...row, delta } : closest;
+  }, { value: f(payload?.daily?.uv_index_max?.[0], 0), time: null, delta: Number.POSITIVE_INFINITY });
+  const peak = rows.reduce((best, row) => (row.value > best.value ? row : best), { value: f(payload?.daily?.uv_index_max?.[0], 0), time: null });
+  return {
+    current: Math.round(f(current.value, payload?.daily?.uv_index_max?.[0] || 0)),
+    peak: Math.round(f(peak.value, 0)),
+    peakTime: peak.time ? compactTime(peak.time) : 'Unavailable',
+    source: 'Open-Meteo UV',
+  };
+}
+
+async function loadPwsDailySummaries() {
+  const payload = await weatherUnderground('/v2/pws/dailysummary/7day', {
+    stationId: cfg.stationId,
+    format: 'json',
+    units: 'e',
+    numericPrecision: 'decimal',
+  });
+  return Array.isArray(payload?.summaries) ? payload.summaries : [];
+}
+
 function dailyFromWeatherCom(payload) {
   const days = payload?.dayOfWeek || [];
   return days.slice(0, 5).map((day, index) => {
@@ -627,7 +665,7 @@ function moonPhaseForDate(date = new Date()) {
   };
 }
 
-function buildStationData({ current, forecast, hourlyTrend, alerts, daily, airQuality = fallbackAirQuality(), stationStatus, dataSource }) {
+function buildStationData({ current, forecast, hourlyTrend, alerts, daily, uvFallback, airQuality = fallbackAirQuality(), stationStatus, dataSource, pwsSummaries = [] }) {
   const now = new Date();
   const firstForecast = forecast[0] || {};
   const currentCondition = classifyCondition(current.conditionText || firstForecast.condition);
@@ -655,8 +693,10 @@ function buildStationData({ current, forecast, hourlyTrend, alerts, daily, airQu
       windSpeed: Math.round(f(current.windSpeed)),
       windDirection: current.windDirection || 'WNW',
       windGust: Math.round(f(current.windGust)),
-      uvIndex: Math.round(f(daily?.uvIndex?.[0], 2)),
-      uvSource: daily?.uvIndex?.[0] != null ? 'Weather.com' : 'Open-Meteo UV',
+      uvIndex: Math.round(f(daily?.uvIndex?.[0], uvFallback?.current ?? 2)),
+      uvPeak: uvFallback?.peak ?? null,
+      uvPeakTime: uvFallback?.peakTime ?? 'Unavailable',
+      uvSource: daily?.uvIndex?.[0] != null ? 'Weather.com' : (uvFallback?.source || 'Open-Meteo UV'),
     },
     forecast,
     hourlyTrend,
@@ -677,7 +717,7 @@ function buildStationData({ current, forecast, hourlyTrend, alerts, daily, airQu
       moonset: compactTime(daily?.moonsetTimeLocal?.[0]) || '2:43 PM',
     },
     radar: buildRadarMetadata(),
-    precipitation: buildPrecipitation(current, forecast, Boolean(dataSource?.current === 'Weather Underground PWS')),
+    precipitation: buildPrecipitation(current, forecast, Boolean(dataSource?.current === 'Weather Underground PWS'), pwsSummaries),
     lightning: buildLightning(forecast),
     stationStatus: stationStatus || {
       online: true,
@@ -695,19 +735,23 @@ function buildStationData({ current, forecast, hourlyTrend, alerts, daily, airQu
   };
 }
 
-function buildPrecipitation(current, forecast = [], hasPws = false) {
-  const today = optionalNumber(current.precipToday) ?? optionalNumber(forecast[0]?.precipitationAmount);
-  const week = forecast.length ? Number(forecast.reduce((sum, day) => sum + f(day.precipitationAmount, 0), 0).toFixed(2)) : null;
+function buildPrecipitation(current, forecast = [], hasPws = false, summaries = []) {
+  const summaryTotals = summaries.map((summary) => optionalNumber(summary?.imperial?.precipTotal)).filter((value) => value !== null);
+  const latestSummaryValue = summaryTotals.length ? summaryTotals[summaryTotals.length - 1] : null;
+  const today = optionalNumber(current.precipToday) ?? latestSummaryValue ?? optionalNumber(forecast[0]?.precipitationAmount);
+  const weekActual = summaryTotals.length ? Number(summaryTotals.reduce((sum, value) => sum + value, 0).toFixed(2)) : null;
+  const weekForecast = forecast.length ? Number(forecast.reduce((sum, day) => sum + f(day.precipitationAmount, 0), 0).toFixed(2)) : null;
+  const week = weekActual ?? weekForecast;
   return {
     today,
     week,
     month: null,
     year: null,
-    todayLabel: hasPws ? 'Today station' : 'Today forecast',
-    weekLabel: '7-day forecast',
+    todayLabel: today == null ? 'Today unavailable' : hasPws ? 'Today station' : 'Today forecast',
+    weekLabel: week == null ? 'Week unavailable' : weekActual == null ? '7-day forecast' : '7-day actual',
     monthLabel: 'History unavailable',
     yearLabel: 'History unavailable',
-    source: hasPws ? 'Weather Underground PWS + forecast' : 'Forecast fallback',
+    source: summaryTotals.length ? 'Weather Underground PWS daily summaries' : hasPws ? 'Weather Underground PWS + forecast' : 'Forecast fallback',
   };
 }
 
@@ -1037,14 +1081,17 @@ Station is {{stationStatus.label}} with data quality {{stationStatus.dataQuality
 
 function greetingFor(contact) {
   const name = String(contact?.display_name || '').trim();
-  return name ? `Good Morning, ${name} — here’s your daily weather brief.` : "Good Morning — here’s your daily weather brief.";
+  return name ? `Good Morning, ${name} - here's your daily weather brief.` : "Good Morning - here's your daily weather brief.";
 }
 
 function renderDailyBriefText(data, contact) {
   const alerts = data.alerts.length ? data.alerts.map((a) => `- ${a.title}`).join('\n') : 'No active alerts at generation time.';
   const outlook = data.forecast.map((day) => `${day.day}\n${day.condition}\nHigh ${day.high} | Low ${day.low} | Rain ${day.precipitationChance}% | Amt ${Number(day.precipitationAmount || 0).toFixed(2)} in`).join('\n\n');
   const aqiText = data.airQuality.aqi == null ? 'Unavailable - AQI source is not configured' : `${data.airQuality.aqi} ${data.airQuality.label}`;
-  return `Live personal weather station\nStaley Street Weather Daily Brief\n\n${greetingFor(contact)}\n\nRight now in ${data.location}, it is ${data.current.temperature}F and ${data.current.condition}, with a feels-like temperature of ${data.current.feelsLike}F.\n\nStation ${data.stationId}\nUpdated ${data.updatedTime}\nSource: ${data.source}\n\nToday should reach about ${data.high}F with a low near ${data.low}F. Winds are ${data.current.windDirection} at ${data.current.windSpeed} mph with gusts near ${data.current.windGust} mph.\n\nRain chances today are ${data.forecast[0]?.precipitationChance ?? 0}%, with an estimated total of ${Number(data.forecast[0]?.precipitationAmount || 0).toFixed(2)} inches.\n\nAir Quality\n${aqiText}\n\nUV\nCurrent ${data.current.uvIndex}${data.current.uvPeak ? `, peak near ${data.current.uvPeak}` : ''}\n\nComfort Dashboard\nHumidity ${data.current.humidity}%\nPressure ${data.current.pressure} inHg\n${data.comfortSummary}\n\nFive-Day Outlook\n\n${outlook}\n\nRain And Ground Conditions\nRain today: ${data.rainToday}. Ground estimate: ${data.groundCondition.label}. ${data.groundCondition.summary}\n\nHungry Mother State Park Water Conditions\n${data.waterCondition.waterTemp}\n${data.waterCondition.measuredOrEstimatedNote}\nSurface: ${data.waterCondition.surface}. Rain/clarity: ${data.waterCondition.clarityNote}\n\nSun And Moon\nSunrise ${data.sunMoon.sunrise}\nSunset ${data.sunMoon.sunset}\nMoon ${data.moon.phase} ${data.moon.illumination}%\n${data.moon.skyEvent || ''}\n\nAlerts And Notes\n${alerts}\n\nStation Status\nStation is ${data.stationStatus.online ? 'online' : 'offline'} with data quality ${data.stationStatus.dataQuality}.`;
+  const precipChance = data.forecast[0]?.precipitationChance ?? 0;
+  const precipAmount = Number(data.forecast[0]?.precipitationAmount || 0).toFixed(2);
+  const story = `Right now in ${data.location}, it is ${data.current.temperature}F and ${data.current.condition}, with a feels-like temperature of ${data.current.feelsLike}F. The day should work toward ${data.high}F before easing back near ${data.low}F tonight. Winds are ${data.current.windDirection} at ${data.current.windSpeed} mph with gusts near ${data.current.windGust} mph, and pressure is ${data.current.pressure} inHg. ${precipChance ? `Rain chances are ${precipChance}%, with an estimated total of ${precipAmount} inches.` : 'No meaningful rain or snow is expected today from the current source.'} UV is ${data.current.uvIndex}${data.current.uvPeak ? ` and should peak near ${data.current.uvPeak}${data.current.uvPeakTime && data.current.uvPeakTime !== 'Unavailable' ? ` around ${data.current.uvPeakTime}` : ''}` : ''}. Air quality is ${aqiText}.`;
+  return `Live personal weather station\nStaley Street Weather Daily Brief\n\n${greetingFor(contact)}\n\n${story}\n\nStation ${data.stationId}\nUpdated ${data.updatedTime}\nSource: ${data.source}\n\nComfort Dashboard\nHumidity ${data.current.humidity}%\nPressure ${data.current.pressure} inHg\n${data.comfortSummary}\n\nFive-Day Outlook\n\n${outlook}\n\nHappening Today\nNo local events are configured for today.\n\nDrive-In Marion, VA Movie Times/Playing\nNo configured Drive-In or movie-time source is connected yet.\n\nFestivals And Parades\nNo configured festival or parade events are listed for today.\n\nRain And Ground Conditions\nRain today: ${data.rainToday}. Ground estimate: ${data.groundCondition.label}. ${data.groundCondition.summary}\n\nHungry Mother State Park Water Conditions\n${data.waterCondition.waterTemp}\n${data.waterCondition.measuredOrEstimatedNote}\nSurface: ${data.waterCondition.surface}. Rain/clarity: ${data.waterCondition.clarityNote}\n\nSun And Moon\nSunrise ${data.sunMoon.sunrise}\nSunset ${data.sunMoon.sunset}\nMoon ${data.moon.phase} ${data.moon.illumination}%\n${data.moon.skyEvent || ''}\n\nAlerts And Notes\n${alerts}\n\nStation Status\nStation is ${data.stationStatus.online ? 'online' : 'offline'} with data quality ${data.stationStatus.dataQuality}.`;
 }
 
 function renderDailyBriefHtml(data) {
@@ -1135,6 +1182,13 @@ async function loadWeatherUndergroundStation() {
   let forecast;
   let hourlyTrend;
   let alerts;
+  let pwsSummaries = [];
+
+  try {
+    pwsSummaries = await loadPwsDailySummaries();
+  } catch (error) {
+    sourceErrors.push({ source: 'Weather Underground PWS daily summaries', message: cleanProviderReason(error) });
+  }
 
   try {
     [dailyPayload, hourlyPayload, alertsPayload] = await Promise.all([
@@ -1177,6 +1231,10 @@ async function loadWeatherUndergroundStation() {
   }
 
   const airQuality = await loadAirQuality();
+  const uvFallback = !dailyPayload?.uvIndex?.[0] ? await loadOpenMeteoUv().catch((error) => {
+    sourceErrors.push({ source: 'Open-Meteo UV', message: cleanProviderReason(error) });
+    return null;
+  }) : null;
   const liveFallbackCurrent = currentPayload ? null : await loadOpenMeteoCurrent().catch(() => null);
   if (!currentPayload && liveFallbackCurrent) dataSource.current = 'Open-Meteo fallback';
   dataSource.aqi = airQuality.source || dataSource.aqi;
@@ -1203,7 +1261,9 @@ async function loadWeatherUndergroundStation() {
     hourlyTrend,
     alerts,
     daily: dailyPayload,
+    uvFallback,
     airQuality,
+    pwsSummaries,
     stationStatus: currentPayload
       ? undefined
       : {

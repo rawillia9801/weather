@@ -11,7 +11,8 @@ export default async function handler(req, res) {
       : briefSubject(data);
     const previewContact = contacts.find((contact) => contact.email_enabled || contact.sms_enabled) || contacts[0] || { display_name: 'Cristy' };
     const templates = await safeSelect('daily_brief_templates', [], { select: '*', channel: 'eq.email_text', is_active: 'eq.true', limit: 1 });
-    const template = templates[0]?.template_body || DEFAULT_TEXT_TEMPLATE;
+    const storedTemplate = templates[0]?.template_body || '';
+    const template = storedTemplate.includes('{{dailyStory}}') && storedTemplate.includes('Happening Today') ? storedTemplate : DEFAULT_TEXT_TEMPLATE;
     const text = renderTemplateText(template, data, previewContact);
     return res.status(200).json({
       subject,

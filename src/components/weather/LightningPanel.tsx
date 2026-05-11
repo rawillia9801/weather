@@ -3,12 +3,21 @@ import type { LightningData } from '../../types/weather';
 import { GlassCard } from '../ui/GlassCard';
 
 export function LightningPanel({ lightning }: { lightning: LightningData }) {
-  const stats = [
-    ['Total Strikes', lightning.total],
-    ['Near Station', lightning.nearStation],
-    ['Cloud Strikes', lightning.cloudStrikes],
-    ['Cloud to Ground', lightning.cloudToGround],
-  ];
+  const hasLiveCounts = [lightning.total, lightning.nearStation, lightning.cloudStrikes, lightning.cloudToGround].some((value) => typeof value === 'number');
+  const stormRisk = /storm risk/i.test(lightning.statusLabel || '');
+  const stats = hasLiveCounts
+    ? [
+        ['Total Strikes', lightning.total],
+        ['Near Station', lightning.nearStation],
+        ['Cloud Strikes', lightning.cloudStrikes],
+        ['Cloud to Ground', lightning.cloudToGround],
+      ]
+    : [
+        ['Mode', 'Risk only'],
+        ['Live Feed', 'Not configured'],
+        ['Storm Risk', stormRisk ? 'Possible' : 'Low'],
+        ['Strikes', 'Unavailable'],
+      ];
 
   return (
     <GlassCard className="tile-panel">
@@ -16,7 +25,7 @@ export function LightningPanel({ lightning }: { lightning: LightningData }) {
       <div className="stat-tiles">
         {stats.map(([label, value]) => (
           <div key={label}>
-            <strong>{typeof value === 'number' ? value : 'N/A'}</strong>
+            <strong>{typeof value === 'number' ? value : value}</strong>
             <small>{label}</small>
           </div>
         ))}
