@@ -2,26 +2,123 @@ import { Info } from 'lucide-react';
 import type { MoonData } from '../../types/weather';
 import { GlassCard } from '../ui/GlassCard';
 
-const moonPhaseSprite = 'data:image/webp;base64,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';
-
-function phaseIndex(moon: MoonData) {
+function phaseGeometry(moon: MoonData) {
   const phase = String(moon.phase || '').toLowerCase();
-  if (phase.includes('new')) return 0;
-  if (phase.includes('waxing crescent')) return 1;
-  if (phase.includes('first quarter')) return 2;
-  if (phase.includes('waxing gibbous')) return 3;
-  if (phase.includes('full')) return 4;
-  if (phase.includes('waning gibbous')) return 5;
-  if (phase.includes('last quarter') || phase.includes('third quarter')) return 6;
-  if (phase.includes('waning crescent')) return 7;
-  const phaseValue = typeof moon.phaseValue === 'number' ? moon.phaseValue : 0.5;
-  return Math.max(0, Math.min(7, Math.round(phaseValue * 7)));
+  const value = typeof moon.phaseValue === 'number' ? Math.max(0, Math.min(1, moon.phaseValue)) : 0.5;
+  const illumination = Math.max(0, Math.min(100, Number(moon.illumination) || 0));
+  const litWidth = 10 + illumination * 0.9;
+  const isWaxing = phase.includes('waxing') || (value > 0 && value < 0.5);
+  const isNew = illumination <= 3 || phase.includes('new');
+  const isFull = illumination >= 97 || phase.includes('full');
+
+  if (isNew) {
+    return { shadowX: 50, shadowWidth: 116, shadowOpacity: 0.93, litClipX: isWaxing ? 82 : 8, litClipWidth: 10 };
+  }
+
+  if (isFull) {
+    return { shadowX: isWaxing ? -95 : 195, shadowWidth: 108, shadowOpacity: 0.08, litClipX: 0, litClipWidth: 100 };
+  }
+
+  return {
+    shadowX: isWaxing ? 6 + litWidth * 0.38 : 94 - litWidth * 0.38,
+    shadowWidth: Math.max(24, 112 - litWidth * 0.52),
+    shadowOpacity: 0.84,
+    litClipX: isWaxing ? 100 - litWidth : 0,
+    litClipWidth: litWidth,
+  };
+}
+
+function MoonVisual({ moon }: { moon: MoonData }) {
+  const geometry = phaseGeometry(moon);
+
+  return (
+    <svg
+      aria-label={`${moon.phase} moon phase`}
+      role="img"
+      viewBox="0 0 120 120"
+      style={{
+        position: 'absolute',
+        right: '13%',
+        top: 5,
+        width: 'clamp(86px, 6.4vw, 112px)',
+        height: 'clamp(86px, 6.4vw, 112px)',
+        filter: 'drop-shadow(0 0 22px rgba(191,219,254,.32)) drop-shadow(0 0 52px rgba(59,130,246,.18))',
+      }}
+    >
+      <defs>
+        <radialGradient id="moonSurface" cx="34%" cy="28%" r="72%">
+          <stop offset="0%" stopColor="#fffef4" />
+          <stop offset="24%" stopColor="#dfe4ea" />
+          <stop offset="56%" stopColor="#aeb8c6" />
+          <stop offset="82%" stopColor="#6b7280" />
+          <stop offset="100%" stopColor="#2f3745" />
+        </radialGradient>
+        <radialGradient id="moonHighlands" cx="48%" cy="45%" r="62%">
+          <stop offset="0%" stopColor="rgba(255,255,255,.34)" />
+          <stop offset="52%" stopColor="rgba(203,213,225,.16)" />
+          <stop offset="100%" stopColor="rgba(15,23,42,.52)" />
+        </radialGradient>
+        <radialGradient id="moonShadow" cx="50%" cy="48%" r="54%">
+          <stop offset="0%" stopColor="rgba(2,6,23,.72)" />
+          <stop offset="62%" stopColor="rgba(2,6,23,.88)" />
+          <stop offset="100%" stopColor="rgba(2,6,23,.98)" />
+        </radialGradient>
+        <clipPath id="moonDiscClip">
+          <circle cx="60" cy="60" r="48" />
+        </clipPath>
+        <clipPath id="moonLitClip">
+          <rect x={geometry.litClipX} y="0" width={geometry.litClipWidth} height="120" />
+        </clipPath>
+        <filter id="moonTextureNoise">
+          <feTurbulence baseFrequency="0.82" numOctaves="3" seed="11" type="fractalNoise" />
+          <feColorMatrix type="saturate" values="0" />
+          <feComponentTransfer>
+            <feFuncA type="table" tableValues="0 .16" />
+          </feComponentTransfer>
+        </filter>
+        <filter id="softBlur">
+          <feGaussianBlur stdDeviation="1.1" />
+        </filter>
+      </defs>
+
+      <circle cx="60" cy="60" r="49" fill="rgba(96,165,250,.13)" />
+      <g clipPath="url(#moonDiscClip)">
+        <circle cx="60" cy="60" r="48" fill="url(#moonSurface)" />
+        <circle cx="60" cy="60" r="48" filter="url(#moonTextureNoise)" opacity=".95" />
+        <circle cx="60" cy="60" r="48" fill="url(#moonHighlands)" opacity=".62" />
+
+        <ellipse cx="38" cy="40" rx="10" ry="6" fill="#6f7886" opacity=".32" transform="rotate(-18 38 40)" />
+        <ellipse cx="72" cy="44" rx="13" ry="8" fill="#586273" opacity=".28" transform="rotate(21 72 44)" />
+        <ellipse cx="49" cy="72" rx="15" ry="9" fill="#4b5563" opacity=".25" transform="rotate(11 49 72)" />
+        <ellipse cx="80" cy="77" rx="9" ry="13" fill="#334155" opacity=".23" transform="rotate(-31 80 77)" />
+        <circle cx="54" cy="53" r="4.5" fill="#263244" opacity=".26" />
+        <circle cx="85" cy="55" r="3.8" fill="#1f2937" opacity=".22" />
+        <circle cx="67" cy="89" r="3.6" fill="#1f2937" opacity=".18" />
+        <circle cx="32" cy="62" r="3.2" fill="#334155" opacity=".17" />
+        <path d="M20 58 C34 48, 44 52, 54 42 S82 22, 105 35" stroke="rgba(255,255,255,.22)" strokeWidth="2" fill="none" opacity=".36" />
+        <path d="M12 84 C30 76, 52 88, 70 78 S94 66, 113 72" stroke="rgba(15,23,42,.22)" strokeWidth="3" fill="none" opacity=".35" />
+
+        <g clipPath="url(#moonLitClip)">
+          <circle cx="60" cy="60" r="48" fill="rgba(255,255,255,.16)" />
+        </g>
+        <ellipse
+          cx={geometry.shadowX}
+          cy="60"
+          rx={geometry.shadowWidth / 2}
+          ry="51"
+          fill="url(#moonShadow)"
+          opacity={geometry.shadowOpacity}
+          filter="url(#softBlur)"
+        />
+        <circle cx="60" cy="60" r="48" fill="none" stroke="rgba(255,255,255,.22)" strokeWidth="1" />
+        <circle cx="60" cy="60" r="48" fill="none" stroke="rgba(15,23,42,.46)" strokeWidth="3" />
+      </g>
+    </svg>
+  );
 }
 
 export function MoonPanel({ moon }: { moon: MoonData }) {
-  const index = phaseIndex(moon);
   const skyWatch = [moon.nextFullMoon && `Full ${moon.nextFullMoon}`, moon.nextNewMoon && `New ${moon.nextNewMoon}`].filter(Boolean).join(' | ');
-  const backgroundPosition = `center ${(index / 7) * 100}%`;
 
   return (
     <GlassCard className="moon-panel">
@@ -30,24 +127,7 @@ export function MoonPanel({ moon }: { moon: MoonData }) {
         <Info className="h-4 w-4 text-white/55" />
       </div>
       <div className="moon-sky">
-        <div
-          aria-label={`${moon.phase} moon phase`}
-          role="img"
-          style={{
-            position: 'absolute',
-            right: '14%',
-            top: 10,
-            width: 'clamp(78px, 6vw, 104px)',
-            height: 'clamp(78px, 6vw, 104px)',
-            borderRadius: '999px',
-            backgroundImage: `url(${moonPhaseSprite})`,
-            backgroundRepeat: 'no-repeat',
-            backgroundSize: '100% auto',
-            backgroundPosition,
-            boxShadow: '0 0 34px rgba(191,219,254,.34), inset 0 0 18px rgba(255,255,255,.12)',
-            filter: 'saturate(1.06) contrast(1.08)',
-          }}
-        />
+        <MoonVisual moon={moon} />
       </div>
       <div className="moon-copy">
         <div className="moon-phase">{moon.phase}</div>
