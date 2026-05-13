@@ -10,7 +10,7 @@ import health from '../serverless/health.js';
 import history from '../serverless/history.js';
 import settings from '../serverless/settings.js';
 import settingsTable from '../serverless/settings-table.js';
-import weather from '../serverless/weather.js';
+import weather from '../serverless/weather-cached.js';
 import weatherDebug from '../serverless/weather-debug.js';
 
 function pathFromRequest(req) {
