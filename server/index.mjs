@@ -329,14 +329,18 @@ async function loadPublicHistoryFallback(reason = 'Weather Underground PWS histo
 
 function readPwsCurrent(payload) {
   const obs = payload?.observations?.[0] || {};
+  return readPwsObservation(obs);
+}
+
+function readPwsObservation(obs = {}) {
   const imperial = obs.imperial || {};
   return {
-    temperature: f(imperial.temp, f(obs.temp)),
-    feelsLike: f(imperial.heatIndex, f(imperial.windChill, f(imperial.temp))),
-    humidity: f(obs.humidity),
-    pressure: f(imperial.pressure, 29.92),
-    windSpeed: f(imperial.windSpeed),
-    windGust: f(imperial.windGust),
+    temperature: f(imperial.temp, f(imperial.tempAvg, f(obs.temp))),
+    feelsLike: f(imperial.heatIndex, f(imperial.heatindexAvg, f(imperial.windChill, f(imperial.windchillAvg, f(imperial.temp, f(imperial.tempAvg)))))),
+    humidity: f(obs.humidity, f(obs.humidityAvg)),
+    pressure: f(imperial.pressure, f(imperial.pressureAvg, f(imperial.pressureMax, 29.92))),
+    windSpeed: f(imperial.windSpeed, f(imperial.windspeedAvg)),
+    windGust: f(imperial.windGust, f(imperial.windgustAvg, f(imperial.windgustHigh))),
     windDirection: obs.winddirCompass || obs.windDirection || 'WNW',
     conditionText: obs.wxPhraseLong || '',
     precipToday: f(imperial.precipTotal),
@@ -427,6 +431,40 @@ async function loadPwsDailySummaries() {
     numericPrecision: 'decimal',
   });
   return Array.isArray(payload?.summaries) ? payload.summaries : [];
+}
+
+function pwsHistoryDate(offsetDays = 0) {
+  const date = new Date(Date.now() - offsetDays * 86400000);
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: cfg.timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const get = (type) => parts.find((part) => part.type === type)?.value || '';
+  return `${get('year')}${get('month')}${get('day')}`;
+}
+
+async function loadLatestPwsHistoryCurrent() {
+  for (const offset of [0, 1, 2]) {
+    try {
+      const payload = await weatherUnderground('/v2/pws/history/hourly', {
+        stationId: cfg.stationId,
+        format: 'json',
+        units: 'e',
+        date: pwsHistoryDate(offset),
+        numericPrecision: 'decimal',
+      });
+      const observations = Array.isArray(payload?.observations) ? payload.observations : [];
+      const latest = observations
+        .slice()
+        .sort((a, b) => f(b.epoch, 0) - f(a.epoch, 0))[0];
+      if (latest) return { observations: [latest] };
+    } catch {
+      // Try the previous day before giving up; the current-day history endpoint may lag.
+    }
+  }
+  throw new Error('Weather Underground PWS hourly history returned no observations');
 }
 
 function dailyFromWeatherCom(payload) {
@@ -1112,9 +1150,50 @@ function renderDailyBriefText(data, contact) {
   return `Live personal weather station\nStaley Street Weather Daily Brief\n\n${greetingFor(contact)}\n\n${story}\n\nStation ${data.stationId}\nUpdated ${data.updatedTime}\nSource: ${data.source}\n\nComfort Dashboard\nHumidity ${data.current.humidity}%\nPressure ${data.current.pressure} inHg\n${data.comfortSummary}\n\nFive-Day Outlook\n\n${outlook}\n\nHappening Today\nNo local events are configured for today.\n\nDrive-In Marion, VA Movie Times/Playing\nNo configured Drive-In or movie-time source is connected yet.\n\nFestivals And Parades\nNo configured festival or parade events are listed for today.\n\nRain And Ground Conditions\nRain today: ${data.rainToday}. Ground estimate: ${data.groundCondition.label}. ${data.groundCondition.summary}\n\nHungry Mother State Park Water Conditions\n${data.waterCondition.waterTemp}\n${data.waterCondition.measuredOrEstimatedNote}\nSurface: ${data.waterCondition.surface}. Rain/clarity: ${data.waterCondition.clarityNote}\n\nSun And Moon\nSunrise ${data.sunMoon.sunrise}\nSunset ${data.sunMoon.sunset}\nMoon ${data.moon.phase} ${data.moon.illumination}%\n${data.moon.skyEvent || ''}\n\nAlerts And Notes\n${alerts}\n\nStation Status\nStation is ${data.stationStatus.online ? 'online' : 'offline'} with data quality ${data.stationStatus.dataQuality}.`;
 }
 
-function renderDailyBriefHtml(data) {
-  const text = renderDailyBriefText(data).split('\n').map((line) => line.trim() ? `<p>${escapeHtml(line)}</p>` : '<br />').join('');
-  return `<!doctype html><html><body style="margin:0;background:#06111e;color:#f8fafc;font-family:Arial,sans-serif"><main style="max-width:720px;margin:auto;padding:24px"><h1 style="color:#67e8f9">Staley Street Weather Daily Brief</h1><section style="background:#0b1f33;border:1px solid #0ea5e9;border-radius:14px;padding:18px">${text}</section></main></body></html>`;
+function renderDailyBriefHtml(data, contact) {
+  const textStory = renderDailyBriefText(data, contact).split('\n\n')[2] || '';
+  const hourlyRows = (data.hourlyTrend || []).slice(0, 8).map((hour) => `<tr><td style="padding:8px;border-bottom:1px solid #16445f">${escapeHtml(hour.time || 'Later')}</td><td style="padding:8px;border-bottom:1px solid #16445f;font-weight:700">${Number.isFinite(Number(hour.temp)) ? `${Math.round(Number(hour.temp))}F` : 'n/a'}</td><td style="padding:8px;border-bottom:1px solid #16445f">${Number.isFinite(Number(hour.feelsLike)) ? `${Math.round(Number(hour.feelsLike))}F` : 'n/a'}</td></tr>`).join('');
+  const forecastRows = data.forecast.map((day) => `<tr><td style="padding:8px;border-bottom:1px solid #16445f">${escapeHtml(day.day)}</td><td style="padding:8px;border-bottom:1px solid #16445f">${escapeHtml(day.condition)}</td><td style="padding:8px;border-bottom:1px solid #16445f">${day.high}F / ${day.low}F</td><td style="padding:8px;border-bottom:1px solid #16445f">${day.precipitationChance}%</td><td style="padding:8px;border-bottom:1px solid #16445f">${Number(day.precipitationAmount || 0).toFixed(2)} in</td></tr>`).join('');
+  const alerts = data.alerts.length ? data.alerts.map((alert) => `<li>${escapeHtml(alert.title)}</li>`).join('') : '<li>No active alerts at generation time.</li>';
+  const tempValues = (data.hourlyTrend || []).slice(0, 8).map((hour) => Number(hour.temp)).filter(Number.isFinite);
+  const precipValues = data.forecast.slice(0, 5).map((day) => Number(day.precipitationAmount || 0));
+  return `<!doctype html><html><body style="margin:0;background:#06111e;color:#f8fafc;font-family:Arial,sans-serif"><main style="max-width:820px;margin:auto;padding:24px"><h1 style="color:#67e8f9;margin:0 0 8px">Staley Street Weather Daily Brief</h1><p style="font-size:18px;margin:0 0 16px">${escapeHtml(greetingFor(contact))}</p>${emailCard('How The Day Looks', `<p style="margin:0;line-height:1.55">${escapeHtml(textStory)}</p>`)}<table role="presentation" style="width:100%;border-collapse:separate;border-spacing:10px 0;margin:0 -10px 14px"><tr><td style="width:50%;vertical-align:top">${emailCard('Current Conditions', `<div style="font-size:38px;font-weight:800">${data.current.temperature}F</div><p style="margin:6px 0 0">Feels like ${data.current.feelsLike}F · ${escapeHtml(data.current.condition)}</p><p style="margin:6px 0 0">High ${data.high}F · Low ${data.low}F</p>`)}</td><td style="width:50%;vertical-align:top">${emailCard('Wind, Humidity, Pressure', `<p style="margin:0">Wind ${escapeHtml(data.current.windDirection)} ${data.current.windSpeed} mph · Gust ${data.current.windGust} mph</p><p style="margin:8px 0 0">Humidity ${data.current.humidity}%</p><p style="margin:8px 0 0">Pressure ${data.current.pressure} inHg</p>`)}</td></tr></table>${emailChartCard('Temperature Trend', lineChartSvg(tempValues, '#38bdf8'), (data.hourlyTrend || []).slice(0, 8).map((hour) => hour.time || ''))}${emailChartCard('Precipitation Outlook', barChartSvg(precipValues, '#22c55e'), data.forecast.slice(0, 5).map((day) => day.day || ''))}<table role="presentation" style="width:100%;border-collapse:collapse;background:#081827;border:1px solid #0ea5e9;border-radius:12px;overflow:hidden;margin:14px 0"><thead><tr style="color:#67e8f9;background:#0b2a3c"><th align="left" style="padding:8px">Day</th><th align="left" style="padding:8px">Condition</th><th align="left" style="padding:8px">Temp</th><th align="left" style="padding:8px">Rain</th><th align="left" style="padding:8px">Amount</th></tr></thead><tbody>${forecastRows}</tbody></table>${emailCard('Hour By Hour', `<table role="presentation" style="width:100%;border-collapse:collapse"><thead><tr style="color:#67e8f9"><th align="left" style="padding:8px">Time</th><th align="left" style="padding:8px">Temp</th><th align="left" style="padding:8px">Feels Like</th></tr></thead><tbody>${hourlyRows || '<tr><td style="padding:8px">Hourly details unavailable from the current source.</td><td></td><td></td></tr>'}</tbody></table>`)}<table role="presentation" style="width:100%;border-collapse:separate;border-spacing:10px 0;margin:0 -10px 14px"><tr><td style="width:50%;vertical-align:top">${emailCard('Air Quality And UV', `<p style="margin:0">AQI ${data.airQuality?.aqi ?? 'Unavailable'} ${escapeHtml(data.airQuality?.label || '')}</p><p style="margin:8px 0 0">UV current ${data.current.uvIndex}${data.current.uvPeak ? ` · Peak ${data.current.uvPeak}${data.current.uvPeakTime ? ` around ${escapeHtml(data.current.uvPeakTime)}` : ''}` : ''}</p>`)}</td><td style="width:50%;vertical-align:top">${emailCard('Sun, Moon, Water', `<p style="margin:0">Sunrise ${escapeHtml(data.sunMoon.sunrise)} · Sunset ${escapeHtml(data.sunMoon.sunset)}</p><p style="margin:8px 0 0">Moon ${escapeHtml(data.moon.phase)} ${data.moon.illumination}%</p><p style="margin:8px 0 0">${escapeHtml(data.waterCondition.waterTemp)} · ${escapeHtml(data.waterCondition.measuredOrEstimatedNote)}</p>`)}</td></tr></table>${emailCard('Alerts And Notes', `<ul style="margin:0;padding-left:18px">${alerts}</ul>`)}<p style="color:#94a3b8">Generated ${escapeHtml(data.updatedTime)} from ${escapeHtml(data.source)}.</p></main></body></html>`;
+}
+
+function emailCard(title, body) {
+  return `<section style="background:#0b1f33;border:1px solid #0ea5e9;border-radius:14px;padding:16px;margin:0 0 14px"><h2 style="margin:0 0 10px;color:#67e8f9;font-size:14px;letter-spacing:.08em;text-transform:uppercase">${escapeHtml(title)}</h2>${body}</section>`;
+}
+
+function emailChartCard(title, svg, labels = []) {
+  const labelRow = labels.length ? `<p style="color:#94a3b8;font-size:11px;margin:6px 0 0">${labels.map(escapeHtml).join(' · ')}</p>` : '';
+  return emailCard(title, `${svg}${labelRow}`);
+}
+
+function lineChartSvg(values, color = '#38bdf8') {
+  if (!values.length) return '<p style="margin:0">Temperature chart unavailable from the current source.</p>';
+  const width = 720;
+  const height = 150;
+  const min = Math.min(...values) - 3;
+  const max = Math.max(...values) + 3;
+  const span = Math.max(1, max - min);
+  const points = values.map((value, index) => `${(values.length === 1 ? width / 2 : (index / (values.length - 1)) * width).toFixed(1)},${(height - ((value - min) / span) * height).toFixed(1)}`).join(' ');
+  return `<svg width="100%" viewBox="0 0 ${width} ${height}" role="img" aria-label="Temperature trend" style="display:block;background:#071827;border-radius:10px"><polyline points="${points}" fill="none" stroke="${color}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><line x1="0" y1="${height - 1}" x2="${width}" y2="${height - 1}" stroke="#16445f"/></svg>`;
+}
+
+function barChartSvg(values, color = '#22c55e') {
+  if (!values.length) return '<p style="margin:0">Precipitation chart unavailable from the current source.</p>';
+  const width = 720;
+  const height = 150;
+  const max = Math.max(...values, 0.05);
+  const gap = 16;
+  const barWidth = (width - gap * (values.length + 1)) / values.length;
+  const bars = values.map((value, index) => {
+    const barHeight = Math.max(3, (value / max) * (height - 24));
+    const x = gap + index * (barWidth + gap);
+    const y = height - barHeight - 12;
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${barHeight.toFixed(1)}" rx="8" fill="${color}"/><text x="${(x + barWidth / 2).toFixed(1)}" y="${height - 2}" text-anchor="middle" fill="#cbd5e1" font-size="12">${value.toFixed(2)}</text>`;
+  }).join('');
+  return `<svg width="100%" viewBox="0 0 ${width} ${height}" role="img" aria-label="Precipitation forecast" style="display:block;background:#071827;border-radius:10px">${bars}<line x1="0" y1="${height - 12}" x2="${width}" y2="${height - 12}" stroke="#16445f"/></svg>`;
 }
 
 function renderDailyBriefSms(data, contact) {
@@ -1192,6 +1271,12 @@ async function loadWeatherUndergroundStation() {
     dataSource.current = 'Weather Underground PWS';
   } catch (error) {
     sourceErrors.push({ source: 'Weather Underground PWS current', message: cleanProviderReason(error) });
+    try {
+      currentPayload = await loadLatestPwsHistoryCurrent();
+      dataSource.current = 'Weather Underground PWS hourly history';
+    } catch (historyError) {
+      sourceErrors.push({ source: 'Weather Underground PWS hourly history', message: cleanProviderReason(historyError) });
+    }
   }
 
   let dailyPayload;
@@ -1459,7 +1544,7 @@ app.get('/api/daily-brief/preview', async (_req, res) => {
       generatedAt: data.generatedAt,
       data,
       text: renderDailyBriefText(data, previewContact),
-      html: renderDailyBriefHtml(data),
+      html: renderDailyBriefHtml(data, previewContact),
       sms: renderDailyBriefSms(data, previewContact),
       deliveryConfigured: config.deliveryConfigured,
       contacts: config.contacts,
@@ -1480,7 +1565,7 @@ app.post('/api/daily-brief/send', async (req, res) => {
     const emailResults = [];
     const smsResults = [];
     for (const contact of contacts) {
-      const payload = { stationId: data.stationId, stationName: data.stationName, location: data.location, generatedAt: data.generatedAt, subject, html: renderDailyBriefHtml(data), text: renderDailyBriefText(data, contact), sms: renderDailyBriefSms(data, contact), data };
+      const payload = { stationId: data.stationId, stationName: data.stationName, location: data.location, generatedAt: data.generatedAt, subject, html: renderDailyBriefHtml(data, contact), text: renderDailyBriefText(data, contact), sms: renderDailyBriefSms(data, contact), data };
       if (contact.email_enabled && contact.email) emailResults.push(await sendEmail(contact, payload));
       if (contact.sms_enabled && contact.phone_e164) smsResults.push(await sendSms(contact, payload));
     }

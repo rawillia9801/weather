@@ -124,17 +124,22 @@ async function weatherCom(path, params) {
 
 function currentFromPws(payload) {
   const obs = payload?.observations?.[0] || {};
+  return currentFromPwsObservation(obs);
+}
+
+function currentFromPwsObservation(obs = {}) {
   const imperial = obs.imperial || {};
   return {
-    temperature: n(imperial.temp, n(obs.temp)),
-    feelsLike: n(imperial.heatIndex, n(imperial.windChill, n(imperial.temp))),
-    humidity: n(obs.humidity),
-    pressure: n(imperial.pressure, 29.92),
-    windSpeed: n(imperial.windSpeed),
-    windGust: n(imperial.windGust),
+    temperature: n(imperial.temp, n(imperial.tempAvg, n(obs.temp))),
+    feelsLike: n(imperial.heatIndex, n(imperial.heatindexAvg, n(imperial.windChill, n(imperial.windchillAvg, n(imperial.temp, n(imperial.tempAvg)))))),
+    humidity: n(obs.humidity, n(obs.humidityAvg)),
+    pressure: n(imperial.pressure, n(imperial.pressureAvg, n(imperial.pressureMax, 29.92))),
+    windSpeed: n(imperial.windSpeed, n(imperial.windspeedAvg)),
+    windGust: n(imperial.windGust, n(imperial.windgustAvg, n(imperial.windgustHigh))),
     windDirection: obs.winddirCompass || obs.windDirection || 'WNW',
     conditionText: obs.wxPhraseLong || '',
     precipToday: n(imperial.precipTotal),
+    precipRate: n(imperial.precipRate),
   };
 }
 
@@ -432,6 +437,41 @@ async function loadPwsDailySummaries() {
   return Array.isArray(payload?.summaries) ? payload.summaries : [];
 }
 
+function pwsHistoryDate(offsetDays = 0) {
+  const date = new Date(Date.now() - offsetDays * 86400000);
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const get = (type) => parts.find((part) => part.type === type)?.value || '';
+  return `${get('year')}${get('month')}${get('day')}`;
+}
+
+async function loadLatestPwsHistoryCurrent() {
+  if (!WEATHER_KEY || !STATION_ID) throw new Error('WEATHER_API_KEY missing');
+  for (const offset of [0, 1, 2]) {
+    try {
+      const payload = await weatherCom('/v2/pws/history/hourly', {
+        stationId: STATION_ID,
+        format: 'json',
+        units: 'e',
+        date: pwsHistoryDate(offset),
+        numericPrecision: 'decimal',
+      });
+      const observations = Array.isArray(payload?.observations) ? payload.observations : [];
+      const latest = observations
+        .slice()
+        .sort((a, b) => n(b.epoch, 0) - n(a.epoch, 0))[0];
+      if (latest) return currentFromPwsObservation(latest);
+    } catch {
+      // Try the previous day before giving up; the current-day history endpoint may lag.
+    }
+  }
+  throw new Error('Weather Underground PWS hourly history returned no observations');
+}
+
 function buildRadarMetadata() {
   const configured = Boolean(RADAR_CONTEXT_URL);
   return {
@@ -558,6 +598,12 @@ async function buildWeather() {
       dataSource.current = 'Weather Underground PWS';
     } catch (error) {
       dataSource.errors.push(sourceError('Weather Underground PWS current', error));
+      try {
+        pws = await loadLatestPwsHistoryCurrent();
+        dataSource.current = 'Weather Underground PWS hourly history';
+      } catch (historyError) {
+        dataSource.errors.push(sourceError('Weather Underground PWS hourly history', historyError));
+      }
     }
     try {
       pwsSummaries = await loadPwsDailySummaries();

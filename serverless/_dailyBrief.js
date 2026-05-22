@@ -144,6 +144,7 @@ export function buildDailyBriefData(weatherData, schedule = {}, localEvents = []
     updatedTime: new Date(weatherData.clock).toLocaleString('en-US', { timeZone: schedule.timezone || cfg.timeZone }),
     current,
     forecast: weatherData.forecast || [],
+    hourlyTrend: weatherData.hourlyTrend || [],
     alerts: weatherData.alerts || [],
     airQuality: weatherData.airQuality,
     moon: weatherData.moon,
@@ -352,9 +353,69 @@ export function renderTextAsHtml(text, subject = 'Staley Street Weather Daily Br
 }
 
 export function renderDailyBriefHtml(data, contact) {
-  const forecastRows = data.forecast.map((day) => `<tr><td>${escapeHtml(day.day)}</td><td>${escapeHtml(day.condition)}</td><td>${day.high}F / ${day.low}F</td><td>${day.precipitationChance}%</td><td>${Number(day.precipitationAmount || 0).toFixed(2)} in</td></tr>`).join('');
+  const hourlyRows = (data.hourlyTrend || []).slice(0, 8).map((hour) => {
+    const temp = finiteNumber(hour.temp);
+    const feels = finiteNumber(hour.feelsLike);
+    return `<tr><td style="padding:8px;border-bottom:1px solid #16445f">${escapeHtml(hour.time || 'Later')}</td><td style="padding:8px;border-bottom:1px solid #16445f;font-weight:700">${temp == null ? 'n/a' : `${Math.round(temp)}F`}</td><td style="padding:8px;border-bottom:1px solid #16445f">${feels == null ? 'n/a' : `${Math.round(feels)}F`}</td></tr>`;
+  }).join('');
+  const forecastRows = data.forecast.map((day) => `<tr><td style="padding:8px;border-bottom:1px solid #16445f">${escapeHtml(day.day)}</td><td style="padding:8px;border-bottom:1px solid #16445f">${escapeHtml(day.condition)}</td><td style="padding:8px;border-bottom:1px solid #16445f">${day.high}F / ${day.low}F</td><td style="padding:8px;border-bottom:1px solid #16445f">${day.precipitationChance}%</td><td style="padding:8px;border-bottom:1px solid #16445f">${precipAmountText(day)}</td></tr>`).join('');
   const alerts = data.alerts.length ? data.alerts.map((alert) => `<li>${escapeHtml(alert.title)}</li>`).join('') : '<li>No active alerts at generation time.</li>';
-  return `<!doctype html><html><body style="margin:0;background:#06111e;color:#f8fafc;font-family:Arial,sans-serif"><main style="max-width:760px;margin:auto;padding:24px"><h1 style="color:#67e8f9;margin:0 0 8px">Staley Street Weather Daily Brief</h1><p style="font-size:18px">${escapeHtml(greetingFor(contact))}</p><section style="background:#0b1f33;border:1px solid #0ea5e9;border-radius:14px;padding:18px;margin:14px 0"><h2 style="margin:0 0 10px">${data.current.temperature}F ${escapeHtml(data.current.condition)}</h2><p>Feels like ${data.current.feelsLike}F in ${escapeHtml(data.location)}. High ${data.high}F, low ${data.low}F.</p><p>Wind ${escapeHtml(data.current.windDirection)} ${data.current.windSpeed} mph, gust ${data.current.windGust} mph. Rain ${data.forecast[0]?.precipitationChance ?? 0}% / ${Number(data.forecast[0]?.precipitationAmount || 0).toFixed(2)} in.</p></section><table role="presentation" style="width:100%;border-collapse:collapse;background:#081827;border:1px solid #0ea5e9"><thead><tr style="color:#67e8f9"><th align="left">Day</th><th align="left">Condition</th><th align="left">Temp</th><th align="left">Rain</th><th align="left">Amount</th></tr></thead><tbody>${forecastRows}</tbody></table><section style="background:#0b1f33;border:1px solid #0ea5e9;border-radius:14px;padding:18px;margin:14px 0"><p>AQI: ${data.airQuality?.aqi ?? 'Unavailable'} ${escapeHtml(data.airQuality?.label || '')}</p><p>UV: ${data.current.uvIndex}${data.current.uvPeak ? `, peak ${data.current.uvPeak}` : ''}</p><p>Moon: ${escapeHtml(data.moon.phase)} ${data.moon.illumination}%</p><p>${escapeHtml(data.waterCondition.waterTemp)} - ${escapeHtml(data.waterCondition.measuredOrEstimatedNote)}</p></section><h3>Alerts And Notes</h3><ul>${alerts}</ul><p style="color:#94a3b8">Generated ${escapeHtml(data.updatedTime)} from ${escapeHtml(data.source)}.</p></main></body></html>`;
+  return `<!doctype html><html><body style="margin:0;background:#06111e;color:#f8fafc;font-family:Arial,sans-serif"><main style="max-width:820px;margin:auto;padding:24px"><h1 style="color:#67e8f9;margin:0 0 8px">Staley Street Weather Daily Brief</h1><p style="font-size:18px;margin:0 0 16px">${escapeHtml(greetingFor(contact))}</p>${emailCard('How The Day Looks', `<p style="margin:0;line-height:1.55">${escapeHtml(data.dailyStory)}</p>`)}<table role="presentation" style="width:100%;border-collapse:separate;border-spacing:10px 0;margin:0 -10px 14px"><tr><td style="width:50%;vertical-align:top">${emailCard('Current Conditions', `<div style="font-size:38px;font-weight:800">${data.current.temperature}F</div><p style="margin:6px 0 0">Feels like ${data.current.feelsLike}F · ${escapeHtml(data.current.condition)}</p><p style="margin:6px 0 0">High ${data.high}F · Low ${data.low}F</p>`)}</td><td style="width:50%;vertical-align:top">${emailCard('Wind, Humidity, Pressure', `<p style="margin:0">Wind ${escapeHtml(data.current.windDirection)} ${data.current.windSpeed} mph · Gust ${data.current.windGust} mph</p><p style="margin:8px 0 0">Humidity ${data.current.humidity}%</p><p style="margin:8px 0 0">Pressure ${data.current.pressure} inHg</p>`)}</td></tr></table>${emailChartCard('Temperature Trend', lineChartSvg((data.hourlyTrend || []).slice(0, 8).map((hour) => finiteNumber(hour.temp)).filter((value) => value != null), '#38bdf8'), (data.hourlyTrend || []).slice(0, 8).map((hour) => hour.time || ''))}${emailChartCard('Precipitation Outlook', barChartSvg((data.forecast || []).slice(0, 5).map((day) => finiteNumber(day.precipitationAmount) ?? 0), '#22c55e'), (data.forecast || []).slice(0, 5).map((day) => day.day || ''))}<table role="presentation" style="width:100%;border-collapse:collapse;background:#081827;border:1px solid #0ea5e9;border-radius:12px;overflow:hidden;margin:14px 0"><thead><tr style="color:#67e8f9;background:#0b2a3c"><th align="left" style="padding:8px">Day</th><th align="left" style="padding:8px">Condition</th><th align="left" style="padding:8px">Temp</th><th align="left" style="padding:8px">Rain</th><th align="left" style="padding:8px">Amount</th></tr></thead><tbody>${forecastRows}</tbody></table>${emailCard('Hour By Hour', `<table role="presentation" style="width:100%;border-collapse:collapse"><thead><tr style="color:#67e8f9"><th align="left" style="padding:8px">Time</th><th align="left" style="padding:8px">Temp</th><th align="left" style="padding:8px">Feels Like</th></tr></thead><tbody>${hourlyRows || '<tr><td style="padding:8px">Hourly details unavailable from the current source.</td><td></td><td></td></tr>'}</tbody></table>`)}<table role="presentation" style="width:100%;border-collapse:separate;border-spacing:10px 0;margin:0 -10px 14px"><tr><td style="width:50%;vertical-align:top">${emailCard('Air Quality And UV', `<p style="margin:0">AQI ${data.airQuality?.aqi ?? 'Unavailable'} ${escapeHtml(data.airQuality?.label || '')}</p><p style="margin:8px 0 0">UV current ${data.current.uvIndex}${data.current.uvPeak ? ` · Peak ${data.current.uvPeak}${data.current.uvPeakTime ? ` around ${escapeHtml(data.current.uvPeakTime)}` : ''}` : ''}</p>`)}</td><td style="width:50%;vertical-align:top">${emailCard('Sun, Moon, Water', `<p style="margin:0">Sunrise ${escapeHtml(data.sunMoon.sunrise)} · Sunset ${escapeHtml(data.sunMoon.sunset)}</p><p style="margin:8px 0 0">Moon ${escapeHtml(data.moon.phase)} ${data.moon.illumination}%</p><p style="margin:8px 0 0">${escapeHtml(data.waterCondition.waterTemp)} · ${escapeHtml(data.waterCondition.measuredOrEstimatedNote)}</p>`)}</td></tr></table>${emailCard('Happening Today', `<p style="white-space:pre-wrap;margin:0">${escapeHtml(data.happeningTodayText)}</p>`)}${emailCard('Drive-In Marion, VA Movie Times/Playing', `<p style="white-space:pre-wrap;margin:0">${escapeHtml(data.driveInText)}</p>`)}${emailCard('Festivals, Parades, And Local Events', `<p style="white-space:pre-wrap;margin:0">${escapeHtml(data.festivalText)}\n\n${escapeHtml(data.localEventsText)}</p>`)}${emailCard('Sky Watch', `<p style="white-space:pre-wrap;margin:0">${escapeHtml(data.skyEventsText || data.moon.skyEvent || 'No configured sky events for the next few days.')}</p>`)}<h3 style="color:#67e8f9">Alerts And Notes</h3><ul>${alerts}</ul><p style="color:#94a3b8">Generated ${escapeHtml(data.updatedTime)} from ${escapeHtml(data.source)}.</p></main></body></html>`;
+}
+
+function emailCard(title, body) {
+  return `<section style="background:#0b1f33;border:1px solid #0ea5e9;border-radius:14px;padding:16px;margin:0 0 14px"><h2 style="margin:0 0 10px;color:#67e8f9;font-size:14px;letter-spacing:.08em;text-transform:uppercase">${escapeHtml(title)}</h2>${body}</section>`;
+}
+
+function emailChartCard(title, svg, labels = []) {
+  const labelRow = labels.length ? `<p style="color:#94a3b8;font-size:11px;margin:6px 0 0">${labels.map(escapeHtml).join(' · ')}</p>` : '';
+  return emailCard(title, `${svg}${labelRow}`);
+}
+
+function finiteNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function precipAmountText(day) {
+  const amount = finiteNumber(day?.precipitationAmount);
+  const snow = finiteNumber(day?.snowfallAmount);
+  if (snow && snow > 0) return `Snow ${snow.toFixed(1)} in`;
+  if (amount == null) return 'n/a';
+  return `${amount.toFixed(2)} in`;
+}
+
+function lineChartSvg(values, color = '#38bdf8') {
+  const clean = values.filter((value) => value != null);
+  if (!clean.length) return '<p style="margin:0">Temperature chart unavailable from the current source.</p>';
+  const width = 720;
+  const height = 150;
+  const min = Math.min(...clean) - 3;
+  const max = Math.max(...clean) + 3;
+  const span = Math.max(1, max - min);
+  const points = clean.map((value, index) => {
+    const x = clean.length === 1 ? width / 2 : (index / (clean.length - 1)) * width;
+    const y = height - ((value - min) / span) * height;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  return `<svg width="100%" viewBox="0 0 ${width} ${height}" role="img" aria-label="Temperature trend" style="display:block;background:#071827;border-radius:10px"><polyline points="${points}" fill="none" stroke="${color}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><line x1="0" y1="${height - 1}" x2="${width}" y2="${height - 1}" stroke="#16445f"/></svg>`;
+}
+
+function barChartSvg(values, color = '#22c55e') {
+  const clean = values.map((value) => Math.max(0, finiteNumber(value) ?? 0));
+  if (!clean.length) return '<p style="margin:0">Precipitation chart unavailable from the current source.</p>';
+  const width = 720;
+  const height = 150;
+  const max = Math.max(...clean, 0.05);
+  const gap = 16;
+  const barWidth = (width - gap * (clean.length + 1)) / clean.length;
+  const bars = clean.map((value, index) => {
+    const barHeight = Math.max(3, (value / max) * (height - 24));
+    const x = gap + index * (barWidth + gap);
+    const y = height - barHeight - 12;
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${barHeight.toFixed(1)}" rx="8" fill="${color}"/><text x="${(x + barWidth / 2).toFixed(1)}" y="${height - 2}" text-anchor="middle" fill="#cbd5e1" font-size="12">${value.toFixed(2)}</text>`;
+  }).join('');
+  return `<svg width="100%" viewBox="0 0 ${width} ${height}" role="img" aria-label="Precipitation forecast" style="display:block;background:#071827;border-radius:10px">${bars}<line x1="0" y1="${height - 12}" x2="${width}" y2="${height - 12}" stroke="#16445f"/></svg>`;
 }
 
 export function renderDailyBriefSms(data, contact) {

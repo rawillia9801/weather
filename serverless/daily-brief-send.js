@@ -1,4 +1,4 @@
-import { briefSubject, buildDailyBriefData, DEFAULT_TEXT_TEMPLATE, loadBriefInputs, renderDailyBriefHtml, renderDailyBriefSms, renderTemplateText, renderTextAsHtml, sendEmail } from './_dailyBrief.js';
+import { briefSubject, buildDailyBriefData, DEFAULT_TEXT_TEMPLATE, loadBriefInputs, renderDailyBriefHtml, renderDailyBriefSms, renderTemplateText, sendEmail } from './_dailyBrief.js';
 import { applyExternalBriefSources, loadExternalBriefSources } from './_externalBriefSources.js';
 import { cfg } from './_env.js';
 import { safeSelect } from './_supabase.js';
@@ -42,7 +42,7 @@ export default async function handler(req, res) {
         location: data.location,
         generatedAt: data.generatedAt,
         subject,
-        html: renderTextAsHtml(text, subject) || renderDailyBriefHtml(data, contact),
+        html: renderDailyBriefHtml(data, contact),
         text,
         sms: renderDailyBriefSms(data, contact),
         data,

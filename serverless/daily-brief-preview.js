@@ -23,7 +23,7 @@ export default async function handler(req, res) {
       data,
       template,
       text,
-      html: renderTextAsHtml(text, subject) || renderDailyBriefHtml(data, previewContact),
+      html: renderDailyBriefHtml(data, previewContact) || renderTextAsHtml(text, subject),
       sms: renderDailyBriefSms(data, previewContact),
       deliveryConfigured: {
         resend: Boolean(cfg.resendApiKey && cfg.resendFromEmail),
