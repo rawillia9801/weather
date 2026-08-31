@@ -1,37 +1,47 @@
-import { Moon, Sun } from 'lucide-react';
+import { Moon, Sunrise, Sunset, SunMedium } from 'lucide-react';
 import type { SunMoonData } from '../../types/weather';
 import { GlassCard } from '../ui/GlassCard';
 
 export function SunMoonPanel({ data }: { data: SunMoonData }) {
+  const hasMoonWindow = !/unavailable/i.test(data.moonrise || '') || !/unavailable/i.test(data.moonset || '');
+
   return (
-    <GlassCard className="sunmoon-panel">
-      <div className="panel-kicker">Sun & Moon</div>
-      <div className="sunmoon-celestials" aria-hidden="true">
-        <span className="sun-disc" />
-        <span className="orbit-arrow" />
-        <span className="moon-disc-small" />
+    <GlassCard className="sunmoon-panel sunmoon-panel-v2">
+      <div className="sunmoon-heading">
+        <div>
+          <div className="panel-kicker">Sun & Moon</div>
+          <div className="sunmoon-subtitle">Today&apos;s local sky timing</div>
+        </div>
+        <SunMedium className="sunmoon-heading-icon" aria-hidden="true" />
       </div>
-      <svg viewBox="0 0 360 160" className="sunmoon-svg" aria-hidden="true">
-        <path d="M35 88 Q180 5 325 88" className="sun-arc" />
-        <path d="M35 134 Q180 92 325 134" className="moon-arc" />
-        <circle cx="35" cy="88" r="4" className="sun-dot" />
-        <circle cx="180" cy="22" r="12" className="sun-body" />
-        <circle cx="325" cy="88" r="4" className="sun-dot" />
-        <circle cx="35" cy="134" r="4" className="moon-dot" />
-        <circle cx="180" cy="112" r="11" className="moon-body" />
-        <circle cx="325" cy="134" r="4" className="moon-dot" />
-        <line x1="18" y1="88" x2="342" y2="88" className="horizon" />
-      </svg>
-      <div className="arc-labels">
-        <span><Sun className="h-4 w-4" />{data.sunrise}<small>Sunrise</small></span>
-        <span>{data.daylight}<small>Daylight</small></span>
-        <span>{data.sunset}<small>Sunset</small></span>
+
+      <div className="solar-window">
+        <div className="sky-time">
+          <Sunrise aria-hidden="true" />
+          <strong>{data.sunrise || 'Unavailable'}</strong>
+          <span>Sunrise</span>
+        </div>
+        <div className="sky-time sky-time-primary">
+          <SunMedium aria-hidden="true" />
+          <strong>{data.daylight || 'Unavailable'}</strong>
+          <span>Daylight</span>
+        </div>
+        <div className="sky-time">
+          <Sunset aria-hidden="true" />
+          <strong>{data.sunset || 'Unavailable'}</strong>
+          <span>Sunset</span>
+        </div>
       </div>
-      <div className="arc-labels mt-3">
-        <span><Moon className="h-4 w-4" />{data.moonrise}<small>Moonrise</small></span>
-        <span>{data.visible}<small>Visible</small></span>
-        <span>{data.moonset}<small>Moonset</small></span>
-      </div>
+
+      {hasMoonWindow ? (
+        <div className="moon-window-row">
+          <Moon aria-hidden="true" />
+          <span><small>Moonrise</small><strong>{data.moonrise || 'Unavailable'}</strong></span>
+          <span><small>Moonset</small><strong>{data.moonset || 'Unavailable'}</strong></span>
+        </div>
+      ) : (
+        <div className="moon-window-unavailable">Moonrise and moonset timing are unavailable from the current provider.</div>
+      )}
     </GlassCard>
   );
 }

@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Bell, Camera, CloudLightning, FileText, History, Home, MapPin, Settings, Signal } from 'lucide-react';
+import { Bell, CloudLightning, FileText, History, Home, MapPin, Settings, Signal } from 'lucide-react';
 import type { StationStatus } from '../../types/weather';
 
 const navItems = [
@@ -8,7 +8,6 @@ const navItems = [
   { label: 'Alarms', icon: Bell, to: '/alarms' },
   { label: 'Reports', icon: FileText, to: '/reports' },
   { label: 'Maps', icon: MapPin, to: '/maps' },
-  { label: 'Cameras', icon: Camera, to: '/cameras' },
   { label: 'Settings', icon: Settings, to: '/settings' },
 ];
 
