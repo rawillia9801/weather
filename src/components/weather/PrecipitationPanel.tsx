@@ -25,7 +25,8 @@ export function PrecipitationPanel({ precipitation }: { precipitation: Precipita
     return () => observer.disconnect();
   }, []);
 
-  const noMeasuredAccumulationYet = isRaining && (precipitation.today ?? 0) <= 0;
+  const hasTodayGauge = precipitation.today != null && !/unavailable/i.test(precipitation.todayLabel || '');
+  const zeroGauge = hasTodayGauge && Number(precipitation.today) === 0;
   const secondaryStats = [
     [precipitation.weekLabel || '7 days', precipitation.week],
     [precipitation.monthLabel || 'Month', precipitation.month],
@@ -38,16 +39,20 @@ export function PrecipitationPanel({ precipitation }: { precipitation: Precipita
         <div className="panel-kicker flex items-center gap-2"><Droplets className="h-4 w-4" />Precipitation</div>
         <span className={`precipitation-status ${isRaining ? 'active' : ''}`}>
           <CloudRain aria-hidden="true" />
-          {isRaining ? 'Rain in progress' : 'Station gauge'}
+          {isRaining ? 'Rain in progress' : 'Gauge accumulation'}
         </span>
       </div>
 
       <div className="precipitation-primary">
-        <span>{precipitation.todayLabel || 'Today'}</span>
-        <strong>{noMeasuredAccumulationYet ? 'Collecting' : valueLabel(precipitation.today, precipitation.todayLabel)}</strong>
-        {noMeasuredAccumulationYet && (
-          <small>Rain is being reported now. The station total has not registered measurable accumulation yet.</small>
-        )}
+        <span>Today&apos;s gauge total</span>
+        <strong>{isRaining && zeroGauge ? 'Collecting' : valueLabel(precipitation.today, precipitation.todayLabel)}</strong>
+        <small>
+          {isRaining && zeroGauge
+            ? 'Rain is being reported now. The accumulated station total has not registered a measurable amount yet.'
+            : zeroGauge
+              ? '0.00 in is the accumulated gauge total, not a current rain-rate reading.'
+              : precipitation.todayLabel || 'Accumulated precipitation reported by the current source.'}
+        </small>
       </div>
 
       <div className="precipitation-secondary-grid">
