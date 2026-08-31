@@ -18,7 +18,20 @@ function phaseFraction(moon: MoonData) {
   return 0.5;
 }
 
+function hasMoonData(moon: MoonData) {
+  return Boolean(moon.phase && !/unavailable|unknown/i.test(moon.phase));
+}
+
 function MoonDisc({ moon }: { moon: MoonData }) {
+  if (!hasMoonData(moon)) {
+    return (
+      <div className="moon-phase-unavailable" role="img" aria-label="Moon phase unavailable">
+        <MoonStar aria-hidden="true" />
+        <span>—</span>
+      </div>
+    );
+  }
+
   const fraction = phaseFraction(moon);
   const illumination = clamp(Number(moon.illumination) || 0, 0, 100);
   const waxing = fraction <= 0.5;
@@ -48,8 +61,9 @@ function MoonDisc({ moon }: { moon: MoonData }) {
 }
 
 export function MoonPanel({ moon }: { moon: MoonData }) {
-  const illumination = Number.isFinite(Number(moon.illumination)) ? Math.round(Number(moon.illumination)) : null;
-  const age = Number.isFinite(Number(moon.age)) ? Number(moon.age).toFixed(1) : null;
+  const available = hasMoonData(moon);
+  const illumination = available && Number.isFinite(Number(moon.illumination)) ? Math.round(Number(moon.illumination)) : null;
+  const age = available && Number.isFinite(Number(moon.age)) ? Number(moon.age).toFixed(1) : null;
   const nextEvents = [
     moon.nextFullMoon ? { label: 'Next full', value: moon.nextFullMoon } : null,
     moon.nextNewMoon ? { label: 'Next new', value: moon.nextNewMoon } : null,
@@ -60,7 +74,7 @@ export function MoonPanel({ moon }: { moon: MoonData }) {
       <div className="moon-panel-header">
         <div>
           <div className="panel-kicker">Moon Phase</div>
-          <div className="moon-phase-name">{moon.phase || 'Unavailable'}</div>
+          <div className="moon-phase-name">{available ? moon.phase : 'Unavailable'}</div>
         </div>
         <MoonStar className="moon-panel-icon" aria-hidden="true" />
       </div>
