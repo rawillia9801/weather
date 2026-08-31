@@ -14,25 +14,29 @@ interface MetricCardProps {
   children?: React.ReactNode;
 }
 
-export function MetricCard({ title, value, unit, label, icon: Icon, data = [], scale, accent = '#22d3ee', children }: MetricCardProps) {
+export function MetricCard({ title, value, unit, label, icon: Icon, data = [], scale, accent = '#2b7de9', children }: MetricCardProps) {
   const chartData = data.map((v, index) => ({ index, value: v }));
 
   return (
     <GlassCard className="metric-card">
-      <div className="metric-title">{title}</div>
-      <Icon className="mb-3 h-8 w-8" style={{ color: accent }} strokeWidth={1.6} />
-      <div className="flex items-end gap-1">
-        <span className="metric-value">{value}</span>
-        {unit && <span className="mb-2 text-sm text-white/80">{unit}</span>}
+      <div className="metric-head">
+        <div className="metric-title">{title}</div>
+        <span className="metric-icon-wrap">
+          <Icon style={{ color: accent }} strokeWidth={1.7} />
+        </span>
       </div>
-      <p className="text-sm text-white/80">{label}</p>
+      <div className="metric-readout">
+        <span className="metric-value">{value}</span>
+        {unit && <span className="metric-unit">{unit}</span>}
+      </div>
+      <p className="metric-label">{label}</p>
       {children ? (
-        <div className="mt-auto">{children}</div>
+        <div className="metric-children">{children}</div>
       ) : (
-        <div className="mt-auto h-10">
+        <div className="metric-chart">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData}>
-              <Area type="monotone" dataKey="value" stroke="#4ade80" fill="rgba(74,222,128,.18)" strokeWidth={2} dot={false} />
+              <Area type="monotone" dataKey="value" stroke="#2b7de9" fill="rgba(43,125,233,.10)" strokeWidth={2} dot={false} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
