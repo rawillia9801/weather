@@ -5,9 +5,14 @@ import { GlassCard } from '../ui/GlassCard';
 
 const wetConditions = new Set(['Rain', 'Showers', 'Thunderstorms']);
 
-function valueLabel(value: number | null, label?: string) {
+function valueLabel(value: number | null | undefined, label?: string) {
   if (value == null || /unavailable/i.test(label || '')) return '—';
   return `${value.toFixed(2)} in`;
+}
+
+function rateLabel(value: number | null | undefined) {
+  if (value == null) return '—';
+  return `${value.toFixed(2)} in/hr`;
 }
 
 export function PrecipitationPanel({ precipitation }: { precipitation: PrecipitationData }) {
@@ -25,46 +30,60 @@ export function PrecipitationPanel({ precipitation }: { precipitation: Precipita
     return () => observer.disconnect();
   }, []);
 
-  const hasTodayGauge = precipitation.today != null && !/unavailable/i.test(precipitation.todayLabel || '');
-  const zeroGauge = hasTodayGauge && Number(precipitation.today) === 0;
+  const hasLiveRate = precipitation.rate != null;
+  const gaugeReportsRain = hasLiveRate && Number(precipitation.rate) > 0;
   const secondaryStats = [
-    [precipitation.weekLabel || '7 days', precipitation.week],
-    [precipitation.monthLabel || 'Month', precipitation.month],
-    [precipitation.yearLabel || 'Year', precipitation.year],
+    ['Today gauge', precipitation.today, precipitation.todayLabel],
+    [precipitation.weekLabel || '7 days', precipitation.week, precipitation.weekLabel],
+    [precipitation.monthLabel || 'Month', precipitation.month, precipitation.monthLabel],
   ] as const;
+
+  const statusLabel = gaugeReportsRain
+    ? 'Live rain detected'
+    : isRaining
+      ? 'Rain reported'
+      : hasLiveRate
+        ? 'Live gauge'
+        : 'Gauge accumulation';
+
+  const rateNote = hasLiveRate
+    ? gaugeReportsRain
+      ? `${precipitation.rateLabel || 'Live PWS rain rate'}${precipitation.observedAt ? ` · ${precipitation.observedAt}` : ''}`
+      : isRaining
+        ? `Weather conditions report rain, but the station gauge currently reports 0.00 in/hr${precipitation.observedAt ? ` · ${precipitation.observedAt}` : ''}.`
+        : `${precipitation.rateLabel || 'Live PWS rain rate'}${precipitation.observedAt ? ` · ${precipitation.observedAt}` : ''}`
+    : isRaining
+      ? 'Rain is being reported, but a live station rain-rate reading is unavailable.'
+      : 'Live rain rate is unavailable; accumulation totals are shown below.';
 
   return (
     <GlassCard className="tile-panel precipitation-panel">
       <div className="precipitation-heading">
         <div className="panel-kicker flex items-center gap-2"><Droplets className="h-4 w-4" />Precipitation</div>
-        <span className={`precipitation-status ${isRaining ? 'active' : ''}`}>
+        <span className={`precipitation-status ${gaugeReportsRain || isRaining ? 'active' : ''}`}>
           <CloudRain aria-hidden="true" />
-          {isRaining ? 'Rain in progress' : 'Gauge accumulation'}
+          {statusLabel}
         </span>
       </div>
 
       <div className="precipitation-primary">
-        <span>Today&apos;s gauge total</span>
-        <strong>{isRaining && zeroGauge ? 'Collecting' : valueLabel(precipitation.today, precipitation.todayLabel)}</strong>
-        <small>
-          {isRaining && zeroGauge
-            ? 'Rain is being reported now. The accumulated station total has not registered a measurable amount yet.'
-            : zeroGauge
-              ? '0.00 in is the accumulated gauge total, not a current rain-rate reading.'
-              : precipitation.todayLabel || 'Accumulated precipitation reported by the current source.'}
-        </small>
+        <span>Live rain rate</span>
+        <strong>{rateLabel(precipitation.rate)}</strong>
+        <small>{rateNote}</small>
       </div>
 
       <div className="precipitation-secondary-grid">
-        {secondaryStats.map(([label, value]) => (
+        {secondaryStats.map(([label, value, sourceLabel]) => (
           <div key={label}>
-            <strong>{valueLabel(value, label)}</strong>
+            <strong>{valueLabel(value, sourceLabel)}</strong>
             <small>{label}</small>
           </div>
         ))}
       </div>
 
-      {precipitation.source && <div className="panel-source precipitation-source">Source: {precipitation.source}</div>}
+      {(precipitation.gaugeSource || precipitation.source) && (
+        <div className="panel-source precipitation-source">Source: {precipitation.gaugeSource || precipitation.source}</div>
+      )}
     </GlassCard>
   );
 }
