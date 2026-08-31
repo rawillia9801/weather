@@ -96,6 +96,10 @@ export interface PrecipitationData {
   week: number | null;
   month: number | null;
   year: number | null;
+  rate?: number | null;
+  rateLabel?: string;
+  observedAt?: string | null;
+  gaugeSource?: string;
   todayLabel?: string;
   weekLabel?: string;
   monthLabel?: string;
