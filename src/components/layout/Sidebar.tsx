@@ -2,124 +2,61 @@ import { NavLink } from 'react-router-dom';
 import { Bell, Camera, CloudLightning, FileText, History, Home, MapPin, Settings, Signal } from 'lucide-react';
 import type { StationStatus } from '../../types/weather';
 
-type NavItem = {
-  label: string;
-  icon: typeof Home;
-  to: string;
-};
-
-type NavGroup = {
-  label: string;
-  items: NavItem[];
-};
-
-const navGroups: NavGroup[] = [
-  {
-    label: 'Command',
-    items: [
-      { label: 'Command Center', icon: Home, to: '/dashboard' },
-      { label: 'Station History', icon: History, to: '/history' },
-    ],
-  },
-  {
-    label: 'Monitoring',
-    items: [
-      { label: 'Alarms', icon: Bell, to: '/alarms' },
-      { label: 'Reports', icon: FileText, to: '/reports' },
-    ],
-  },
-  {
-    label: 'Observation',
-    items: [
-      { label: 'Maps', icon: MapPin, to: '/maps' },
-      { label: 'Cameras', icon: Camera, to: '/cameras' },
-    ],
-  },
-  {
-    label: 'System',
-    items: [{ label: 'Settings', icon: Settings, to: '/settings' }],
-  },
+const navItems = [
+  { label: 'Dashboard', icon: Home, to: '/dashboard' },
+  { label: 'History', icon: History, to: '/history' },
+  { label: 'Alarms', icon: Bell, to: '/alarms' },
+  { label: 'Reports', icon: FileText, to: '/reports' },
+  { label: 'Maps', icon: MapPin, to: '/maps' },
+  { label: 'Cameras', icon: Camera, to: '/cameras' },
+  { label: 'Settings', icon: Settings, to: '/settings' },
 ];
 
 export function Sidebar({ status }: { status: StationStatus }) {
   const usingFallback = !status.online && status.dataQuality === 'Public fallback';
-  const statusLabel = status.online ? 'Station online' : usingFallback ? 'Public fallback' : 'Station offline';
-  const statusClass = status.online ? 'online' : usingFallback ? 'fallback' : 'offline';
-
+  const statusLabel = status.online ? 'Online' : usingFallback ? 'Public fallback' : 'Offline';
+  const statusTone = status.online ? 'text-green-400' : 'text-amber-300';
   return (
     <aside className="sidebar">
-      <NavLink className="station-brand" to="/dashboard" aria-label="Staley Street Weather Command Center">
-        <span className="station-logo" aria-hidden="true">
-          <CloudLightning />
-        </span>
-        <span className="station-brand-copy">
-          <strong>Staley Weather</strong>
-          <small>Station Operations</small>
-        </span>
-      </NavLink>
-
-      <div className="station-context-card">
-        <div className="station-context-topline">
-          <span>Weather station</span>
-          <i className={statusClass} aria-hidden="true" />
-        </div>
-        <strong>KVAMARIO42</strong>
-        <small>Marion, Virginia · Live telemetry</small>
+      <div className="station-logo" aria-label="Staley Street Weather logo">
+        <CloudLightning className="h-10 w-10" />
       </div>
 
       <nav className="sidebar-nav" aria-label="Primary navigation">
-        {navGroups.map((group) => (
-          <div className="sidebar-nav-group" key={group.label}>
-            <div className="sidebar-nav-label">{group.label}</div>
-            <div className="sidebar-nav-items">
-              {group.items.map(({ label, icon: Icon, to }) => (
-                <NavLink
-                  key={label}
-                  to={to}
-                  className={({ isActive }) => `sidebar-nav-item ${isActive ? 'active' : ''}`}
-                  aria-label={label}
-                >
-                  <Icon />
-                  <span>{label}</span>
-                </NavLink>
-              ))}
-            </div>
-          </div>
+        {navItems.map(({ label, icon: Icon, to }) => (
+          <NavLink key={label} to={to} className={({ isActive }) => `sidebar-nav-item ${isActive ? 'active' : ''}`} aria-label={label}>
+            <Icon className="h-6 w-6" />
+            <span>{label}</span>
+          </NavLink>
         ))}
       </nav>
 
       <div className="station-status-card">
-        <div className="station-status-heading">
-          <div>
-            <span>Station telemetry</span>
-            <strong className={statusClass}>{statusLabel}</strong>
-          </div>
-          <Signal className={statusClass} />
+        <div className="panel-kicker">Station Status</div>
+        <div className={`mt-3 flex items-center gap-2 text-sm font-semibold uppercase ${statusTone}`}>
+          <span className={`live-dot ${status.online ? '' : 'live-dot-amber'}`} />
+          {statusLabel}
         </div>
-
-        <div className="station-status-grid">
-          <div>
-            <span>Signal</span>
-            <strong>{status.signal}%</strong>
+        <div className="mt-3 space-y-2 text-xs text-white/70">
+          <div className="flex justify-between gap-2">
+            <span>Signal: {status.signal}%</span>
+            <Signal className={`h-4 w-4 ${statusTone}`} />
           </div>
+          <div>Uptime: {status.uptime}</div>
           <div>
-            <span>Quality</span>
-            <strong>{status.dataQualityScore}%</strong>
+            Last Restart:<br />
+            {status.lastRestart}
           </div>
         </div>
-
-        <div className="station-quality-track" aria-label={`Data quality ${status.dataQualityScore}%`}>
-          <span style={{ width: `${Math.max(0, Math.min(100, status.dataQualityScore))}%` }} />
+        <div className="mt-4 border-t border-cyan-300/15 pt-3">
+          <div className="panel-kicker text-[11px]">Data Quality</div>
+          <div className={`mt-2 text-sm ${statusTone}`}>{status.dataQuality}</div>
+          <div className={`mt-1 text-lg ${statusTone}`}>{status.dataQualityScore}%</div>
+          <div className="mt-2 h-1.5 rounded-full bg-white/10">
+            <div className="h-full rounded-full bg-green-400" style={{ width: `${status.dataQualityScore}%` }} />
+          </div>
         </div>
-
-        <div className="station-status-meta">
-          <span>{status.dataQuality}</span>
-          <span>Uptime {status.uptime}</span>
-        </div>
-        <div className="station-restart">Last restart · {status.lastRestart}</div>
       </div>
-
-      <div className="sidebar-watermark" aria-hidden="true">WX // MISSION CONTROL</div>
     </aside>
   );
 }
