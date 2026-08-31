@@ -1,13 +1,15 @@
 import { NavLink } from 'react-router-dom';
-import { Bell, Clock3, FileText, Grid2X2, History, Settings } from 'lucide-react';
+import { Bell, Camera, Clock3, FileText, Grid2X2, History, MapPin, Settings, Signal } from 'lucide-react';
 import { LiveBadge } from '../ui/LiveBadge';
 import type { StationInfo, StationStatus } from '../../types/weather';
 
 const tabs = [
-  { label: 'Dashboard', icon: Grid2X2, to: '/dashboard' },
+  { label: 'Command', icon: Grid2X2, to: '/dashboard' },
   { label: 'History', icon: History, to: '/history' },
-  { label: 'Alarms', icon: Bell, to: '/alarms', badge: 2 },
+  { label: 'Alarms', icon: Bell, to: '/alarms' },
   { label: 'Reports', icon: FileText, to: '/reports' },
+  { label: 'Maps', icon: MapPin, to: '/maps' },
+  { label: 'Cameras', icon: Camera, to: '/cameras' },
   { label: 'Settings', icon: Settings, to: '/settings' },
 ];
 
@@ -22,38 +24,51 @@ export function Header({ station, clock, status }: { station: StationInfo; clock
   });
   const badgeLabel = status.online ? 'LIVE' : status.dataQuality === 'Public fallback' ? 'PUBLIC FALLBACK' : 'OFFLINE';
   const badgeTone = status.online ? 'green' : 'amber';
+  const operationalLabel = status.online ? 'Canonical station feed online' : status.dataQuality === 'Public fallback' ? 'Fallback weather feed active' : 'Station feed interrupted';
 
   return (
     <header className="dashboard-header">
-      <div className="min-w-0">
-        <div className="header-kicker">Live Personal Weather Station</div>
-        <h1 className="dashboard-title">{station.name}</h1>
-        <div className="header-subtitle">
-          <span>{station.location}</span>
-          <span>&bull;</span>
-          <span>Station {station.id}</span>
-          <span>&bull;</span>
-          <LiveBadge label={badgeLabel} tone={badgeTone} />
+      <div className="system-rail">
+        <div className="system-identity">
+          <strong>WXOPS // MISSION CONTROL</strong>
+          <span className={status.online ? 'system-state online' : 'system-state fallback'}>
+            <i aria-hidden="true" />
+            {operationalLabel}
+          </span>
+        </div>
+        <div className="system-telemetry">
+          <span><Signal /> Signal {status.signal}%</span>
+          <span>Quality {status.dataQualityScore}%</span>
+          <span>{station.id}</span>
         </div>
       </div>
 
-      <div className="header-actions">
-        <div className="time-pill">
-          <Clock3 className="h-4 w-4" />
-          {timeLabel}
+      <div className="dashboard-header-main">
+        <div className="dashboard-heading">
+          <div className="header-kicker"><span aria-hidden="true" /> Live Personal Weather Station</div>
+          <h1 className="dashboard-title">{station.name}</h1>
+          <div className="header-subtitle">
+            <span>{station.location}</span>
+            <span className="header-divider" aria-hidden="true" />
+            <span>Station {station.id}</span>
+            <LiveBadge label={badgeLabel} tone={badgeTone} />
+          </div>
         </div>
-        <LiveBadge label={badgeLabel} tone={badgeTone} />
-        <nav className="top-tabs" aria-label="Dashboard sections">
-          {tabs.map(({ label, icon: Icon, to, badge }) => (
-            <NavLink key={label} to={to} className={({ isActive }) => `top-tab ${isActive ? 'active' : ''}`} aria-label={label}>
-              <span className="relative">
+
+        <div className="header-actions">
+          <div className="time-pill">
+            <Clock3 />
+            <span>{timeLabel}</span>
+          </div>
+          <nav className="top-tabs" aria-label="Dashboard sections">
+            {tabs.map(({ label, icon: Icon, to }) => (
+              <NavLink key={label} to={to} className={({ isActive }) => `top-tab ${isActive ? 'active' : ''}`} aria-label={label}>
                 <Icon className="top-tab-icon" />
-                {badge && <span className="alarm-badge">{badge}</span>}
-              </span>
-              <span>{label}</span>
-            </NavLink>
-          ))}
-        </nav>
+                <span>{label}</span>
+              </NavLink>
+            ))}
+          </nav>
+        </div>
       </div>
     </header>
   );
