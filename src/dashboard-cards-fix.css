@@ -1,0 +1,99 @@
+/* Final truth-first dashboard card cleanup. Loaded after dashboard-v2.css. */
+
+.metric-linear-gauge,
+.metric-position-gauge {
+  position: relative;
+  height: 8px;
+  margin-top: 16px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, .18);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.35);
+}
+
+.metric-linear-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(34, 211, 238, .72), rgba(74, 222, 128, .96));
+  box-shadow: 0 0 12px rgba(74, 222, 128, .28);
+}
+
+.metric-position-gauge {
+  overflow: visible;
+  background: linear-gradient(90deg, rgba(56, 189, 248, .28), rgba(74, 222, 128, .28) 50%, rgba(251, 191, 36, .28));
+}
+
+.metric-position-marker {
+  position: absolute;
+  top: 50%;
+  width: 3px;
+  height: 18px;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: #f8fafc;
+  box-shadow: 0 0 10px rgba(103, 232, 249, .75);
+}
+
+.sunmoon-panel-v2 .solar-window {
+  flex: 1;
+  align-items: stretch;
+}
+
+.sunmoon-panel-v2 .sky-time {
+  align-content: center;
+  min-height: 78px;
+}
+
+.sunmoon-panel-v2 .sky-time svg {
+  width: 19px;
+  height: 19px;
+}
+
+.sunmoon-panel-v2 .sky-time strong {
+  font-size: .88rem;
+}
+
+.sunmoon-panel-v2 .sky-time span {
+  font-size: .55rem;
+}
+
+.precipitation-primary-v2 {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  padding: 9px 0 10px;
+}
+
+.precipitation-primary-v2 > strong {
+  font-size: clamp(1.15rem, 1.5vw, 1.55rem);
+  letter-spacing: .01em;
+}
+
+.precipitation-secondary-grid-v2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.precipitation-secondary-grid-v2 > div {
+  padding: 8px 7px;
+}
+
+.precipitation-secondary-grid-v2 strong {
+  font-size: .82rem;
+}
+
+.precipitation-secondary-grid-v2 small {
+  font-size: .53rem;
+}
+
+@media (min-width: 1200px) {
+  /* Lightning is intentionally absent until there is a real live strike source.
+     Give that space to precipitation instead of showing four boxes of non-data. */
+  .station-details-panel {
+    grid-column: 1 / 5 !important;
+  }
+
+  .precipitation-panel {
+    grid-column: 5 / 13 !important;
+  }
+}
