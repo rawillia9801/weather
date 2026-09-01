@@ -11,7 +11,7 @@ function valueLabel(value: number | null | undefined, label?: string) {
 }
 
 function rateLabel(value: number | null | undefined) {
-  if (value == null) return '—';
+  if (value == null) return null;
   return `${value.toFixed(2)} in/hr`;
 }
 
@@ -30,55 +30,44 @@ export function PrecipitationPanel({ precipitation }: { precipitation: Precipita
     return () => observer.disconnect();
   }, []);
 
-  const hasLiveRate = precipitation.rate != null;
-  const gaugeReportsRain = hasLiveRate && Number(precipitation.rate) > 0;
-  const secondaryStats = [
-    ['Today gauge', precipitation.today, precipitation.todayLabel],
-    [precipitation.weekLabel || '7 days', precipitation.week, precipitation.weekLabel],
-    [precipitation.monthLabel || 'Month', precipitation.month, precipitation.monthLabel],
-  ] as const;
-
-  const statusLabel = gaugeReportsRain
-    ? 'Live rain detected'
-    : isRaining
-      ? 'Rain reported'
-      : hasLiveRate
-        ? 'Live gauge'
-        : 'Gauge accumulation';
-
-  const rateNote = hasLiveRate
-    ? gaugeReportsRain
-      ? `${precipitation.rateLabel || 'Live PWS rain rate'}${precipitation.observedAt ? ` · ${precipitation.observedAt}` : ''}`
-      : isRaining
-        ? `Weather conditions report rain, but the station gauge currently reports 0.00 in/hr${precipitation.observedAt ? ` · ${precipitation.observedAt}` : ''}.`
-        : `${precipitation.rateLabel || 'Live PWS rain rate'}${precipitation.observedAt ? ` · ${precipitation.observedAt}` : ''}`
-    : isRaining
-      ? 'Rain is being reported, but a live station rain-rate reading is unavailable.'
-      : 'Live rain rate is unavailable; accumulation totals are shown below.';
+  const liveRate = rateLabel(precipitation.rate);
+  const gaugeReportsRain = precipitation.rate != null && precipitation.rate > 0;
+  const rainNow = gaugeReportsRain || isRaining;
+  const status = rainNow ? 'Raining now' : precipitation.rate != null ? 'No rain detected' : 'Rain status from conditions';
+  const primary = liveRate || (rainNow ? 'RAINING' : '—');
+  const primaryLabel = liveRate ? 'Live station rain rate' : rainNow ? 'Current precipitation' : 'Live rate unavailable';
 
   return (
     <GlassCard className="tile-panel precipitation-panel">
       <div className="precipitation-heading">
         <div className="panel-kicker flex items-center gap-2"><Droplets className="h-4 w-4" />Precipitation</div>
-        <span className={`precipitation-status ${gaugeReportsRain || isRaining ? 'active' : ''}`}>
+        <span className={`precipitation-status ${rainNow ? 'active' : ''}`}>
           <CloudRain aria-hidden="true" />
-          {statusLabel}
+          {status}
         </span>
       </div>
 
-      <div className="precipitation-primary">
-        <span>Live rain rate</span>
-        <strong>{rateLabel(precipitation.rate)}</strong>
-        <small>{rateNote}</small>
+      <div className="precipitation-primary precipitation-primary-v2">
+        <span>{primaryLabel}</span>
+        <strong>{primary}</strong>
+        <small>
+          {liveRate
+            ? `${precipitation.rateLabel || 'Weather Underground PWS'}${precipitation.observedAt ? ` · ${precipitation.observedAt}` : ''}`
+            : rainNow
+              ? 'Current weather reports precipitation. The station rain-rate field is not available, so the dashboard is not substituting a fake zero.'
+              : 'No live station rain-rate reading is available right now.'}
+        </small>
       </div>
 
-      <div className="precipitation-secondary-grid">
-        {secondaryStats.map(([label, value, sourceLabel]) => (
-          <div key={label}>
-            <strong>{valueLabel(value, sourceLabel)}</strong>
-            <small>{label}</small>
-          </div>
-        ))}
+      <div className="precipitation-secondary-grid precipitation-secondary-grid-v2">
+        <div>
+          <strong>{valueLabel(precipitation.today, precipitation.todayLabel)}</strong>
+          <small>Today gauge</small>
+        </div>
+        <div>
+          <strong>{valueLabel(precipitation.week, precipitation.weekLabel)}</strong>
+          <small>{precipitation.weekLabel || '7-day total'}</small>
+        </div>
       </div>
 
       {(precipitation.gaugeSource || precipitation.source) && (
