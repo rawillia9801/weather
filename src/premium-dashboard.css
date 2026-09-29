@@ -1,0 +1,151 @@
+/* Staley Street Weather: presentation only. All readings remain sourced by AppShell. */
+:root { --wx-ink:#06121f; --wx-line:rgba(125,185,215,.20); --wx-blue:#8dd9f4; }
+.app-shell {
+  grid-template-columns: 144px minmax(0,1fr);
+  gap:0; padding:0;
+  background: radial-gradient(ellipse at 58% -8%,#27435b 0%,#12283b 29%,#071624 58%,#04101c 100%);
+}
+.global-atmosphere, .app-shell[data-condition] .global-atmosphere {
+  position:absolute; height:280px; bottom:auto; opacity:1;
+  background:
+    linear-gradient(180deg,rgba(4,14,27,.30),rgba(4,14,27,.30) 38%,#061320 100%),
+    url('/storm-ridge.png') center 38% / cover no-repeat,
+    radial-gradient(ellipse at 73% 13%,rgba(205,226,237,.26),transparent 10%),
+    radial-gradient(ellipse at 67% 5%,#43556a 0 10%,transparent 34%),
+    radial-gradient(ellipse at 34% 7%,#172b41 0 21%,transparent 47%),
+    linear-gradient(180deg,rgba(4,12,24,.24),rgba(4,13,25,.24) 45%,#061320 100%);
+}
+.main-dashboard { padding:18px 17px 20px; }
+.sidebar { position:sticky; top:0; height:100vh; padding:20px 10px; border:0; border-right:1px solid var(--wx-line); border-radius:0; background:linear-gradient(180deg,#071a2b,#05111e); box-shadow:none; }
+.station-logo { height:62px; border:0; border-radius:0; box-shadow:none; color:#75bfdf; }
+.station-logo svg { width:54px; height:54px; stroke-width:1; }
+.sidebar-nav { margin:20px -10px 0; gap:5px; }
+.sidebar-nav-item { min-height:62px; display:flex; justify-content:flex-start; gap:12px; padding:0 16px; border-radius:0; font-size:.76rem; text-transform:none; letter-spacing:.01em; }
+.sidebar-nav-item svg { width:19px; height:19px; }
+.sidebar-nav-item.active { border-color:transparent; border-left:3px solid #6dc5ed; background:linear-gradient(90deg,rgba(45,105,143,.35),transparent); color:#fff; box-shadow:none; }
+.station-status-card { padding:12px 10px; border-color:var(--wx-line); border-radius:8px; background:rgba(5,20,33,.8); }
+.station-status-card .panel-kicker { color:#b8cfdf; }
+.dashboard-header { min-height:76px; padding:0 2px 14px; align-items:center; }
+.header-kicker { display:none; }
+.dashboard-title { margin:0; font-family:Georgia, 'Times New Roman',serif; font-size:clamp(1.65rem,2.4vw,2.7rem); font-weight:500; letter-spacing:.065em; line-height:1.08; text-transform:uppercase; text-shadow:0 2px 16px #04101e; }
+.header-subtitle { margin-top:5px; color:#a8d3e8; letter-spacing:.11em; text-transform:uppercase; font-size:.72rem; }
+.header-subtitle .live-badge { display:none; }
+.header-actions { align-items:center; }
+.header-actions > .live-badge { order:-1; border:0; background:transparent; color:#b8e6d0; }
+.time-pill { height:auto; border:0; background:transparent; color:#cbd9e6; }
+.top-tabs { display:none; }
+.glass-card { border:1px solid var(--wx-line); border-radius:9px; background:linear-gradient(145deg,rgba(8,29,46,.94),rgba(4,17,30,.97)); box-shadow:inset 0 1px 0 rgba(255,255,255,.045),0 6px 20px rgba(0,0,0,.25); }
+.glass-card::before { background:linear-gradient(130deg,rgba(80,163,207,.06),transparent 52%); }
+.panel-kicker,.metric-title { color:#d4e9f3; font-size:.78rem; font-weight:700; letter-spacing:.075em; }
+.dashboard-grid { grid-template-columns:repeat(12,minmax(0,1fr)); grid-template-rows:auto; grid-auto-rows:auto; gap:12px; margin-top:0; }
+.hero-area { grid-column:1/-1; display:grid; grid-template-columns:minmax(340px,4fr) minmax(0,8fr); gap:12px; }
+.current-hero { min-height:305px; padding:20px 24px; border-radius:9px; background:linear-gradient(90deg,rgba(3,15,29,.82),rgba(7,25,40,.20)),url('/storm-ridge.png') 52% 62% / cover no-repeat; }
+.current-hero::after { content:""; pointer-events:none; position:absolute; inset:0; background:radial-gradient(ellipse at 84% 67%,rgba(156,205,223,.22),transparent 36%),linear-gradient(0deg,rgba(1,10,19,.58),transparent 50%); }
+.current-hero > * { position:relative; z-index:1; }
+.current-hero-content { margin-top:16px; }
+.temperature-readout { font-family:Georgia,'Times New Roman',serif; font-size:clamp(4rem,6vw,6.6rem); font-weight:500; letter-spacing:-.055em; }
+.feels-like { font-size:1rem; color:#d3e7f0; }
+.high-low-row { margin-top:24px; }
+.hero-condition-art svg { width:76px; height:76px; }
+.metrics-grid { gap:12px; }
+.metric-card { min-height:305px; padding:18px 16px; border-radius:9px; }
+.metric-card svg { width:25px; height:25px; }
+.metric-value { font-family:Georgia,'Times New Roman',serif; font-weight:500; font-size:clamp(2rem,2.6vw,3.2rem); }
+.metric-card p { color:#c1d4e0; }
+.metric-linear-gauge { height:10px; }
+.forecast-area { grid-column:1/5; grid-row:2/4; }
+.forecast-section { height:100%; min-height:314px; padding:15px; }
+.forecast-grid { gap:0; height:calc(100% - 28px); }
+.forecast-card { min-height:265px; height:100%; border:0; border-right:1px solid rgba(128,174,201,.16); border-radius:0; padding:12px 7px; background:transparent !important; box-shadow:none; text-align:center; }
+.forecast-card:last-child { border-right:0; }
+.forecast-card .weather-texture,.forecast-card .weather-animation,.forecast-card .distant-trees,.forecast-card .condition-vignette { display:none; }
+.forecast-card-inner { position:relative; }
+.forecast-day { font-size:.72rem; }
+.forecast-icon-wrap svg { width:clamp(30px,3vw,52px); height:clamp(30px,3vw,52px); }
+.forecast-temps { justify-content:center; gap:4px; }
+.forecast-temps span:first-child { font-size:1.18rem; }
+.forecast-temps span:last-child { font-size:.9rem; }
+.forecast-label { font-size:.65rem; }
+.forecast-pop { justify-content:center; font-size:.64rem; }
+.forecast-amount,.source-chip { display:none; }
+.alert-area { grid-column:5/-1; grid-row:2; }
+.alert-area .alert-bar { min-height:42px; border-radius:8px; padding:6px 14px; font-size:.81rem; }
+.moon-area { grid-column:5/8; grid-row:4; }
+.radar-panel { grid-column:5/9; grid-row:3; }
+.trend-panel { grid-column:9/-1; grid-row:3; }
+.air-panel { grid-column:8/10; grid-row:4; }
+.sunmoon-panel { grid-column:10/-1; grid-row:4; }
+.detail-panel { grid-column:1/5; grid-row:4; }
+.precipitation-panel { grid-column:1/5; grid-row:3; }
+.dashboard-grid > .tile-panel:not(.precipitation-panel) { grid-column:5/9; grid-row:5; }
+.radar-panel,.trend-panel { min-height:258px; padding:14px; }
+.radar-map { height:170px; }
+.trend-chart { height:190px !important; }
+.moon-area,.air-panel,.sunmoon-panel,.detail-panel,.precipitation-panel,.dashboard-grid > .tile-panel:not(.precipitation-panel) { min-height:178px; }
+.site-footer { border-color:var(--wx-line); color:#87a5b6; }
+@media (min-width:1200px) {
+  .app-shell { grid-template-columns:144px minmax(0,1fr); padding:0; gap:0; }
+  .sidebar { top:0; height:100vh; padding:20px 10px; }
+  .sidebar-nav { gap:5px; }
+  .sidebar-nav-item { min-height:62px; }
+  .dashboard-header { min-height:76px; }
+  .dashboard-title { font-size:clamp(1.65rem,2.4vw,2.7rem); }
+  .dashboard-grid { grid-template-columns:repeat(12,minmax(0,1fr)) !important; grid-template-rows:auto; grid-auto-rows:auto; gap:12px; margin-top:0; }
+  .hero-area { grid-column:1/-1 !important; grid-row:1; height:auto; grid-template-columns:minmax(340px,4fr) minmax(0,8fr); gap:12px; }
+  .current-hero,.metric-card,.metrics-grid { height:305px; min-height:305px; }
+  .current-hero { padding:20px 24px; }
+  .temperature-readout { font-size:clamp(4rem,6vw,6.6rem); }
+  .metric-card { padding:18px 16px; }
+  .metric-card svg { width:25px; height:25px; }
+  .metric-value { font-size:clamp(2rem,2.6vw,3.2rem); }
+  .forecast-area { grid-column:1/5 !important; grid-row:2/4; }
+  .forecast-section { min-height:314px; height:100%; padding:15px; }
+  .forecast-card { height:100%; min-height:265px; padding:12px 7px; }
+  .alert-area { grid-column:5/-1; grid-row:2; }
+  .radar-panel,.trend-panel { grid-row:3; min-height:258px; height:auto; padding:14px; }
+  .radar-panel { grid-column:5/9 !important; }
+  .trend-panel { grid-column:9/-1 !important; }
+  .radar-map { height:170px; }
+  .trend-chart { height:190px !important; }
+  .moon-area,.air-panel,.sunmoon-panel,.detail-panel,.precipitation-panel,.dashboard-grid > .tile-panel:not(.precipitation-panel) { grid-row:4; height:auto; min-height:178px; }
+  .moon-area { grid-column:5/8 !important; }
+  .air-panel { grid-column:8/10 !important; }
+  .sunmoon-panel { grid-column:10/-1 !important; }
+  .station-details-panel { grid-column:1/5 !important; }
+  .precipitation-panel { grid-column:1/5 !important; grid-row:3; }
+  .dashboard-grid > .tile-panel:not(.precipitation-panel) { grid-column:5/9 !important; grid-row:5; }
+}
+@media (min-width:1200px) and (max-width:1550px) {
+  .forecast-area { grid-column:1/6 !important; }
+  .alert-area { grid-column:6/-1; }
+  .radar-panel { grid-column:6/10 !important; }
+  .trend-panel { grid-column:10/-1 !important; }
+  .precipitation-panel { grid-column:1/6 !important; }
+  .moon-area { grid-column:5/8 !important; }
+  .forecast-card { padding-inline:4px; }
+}
+@media (max-width:1199px) {
+  .app-shell { grid-template-columns:1fr; }
+  .main-dashboard { padding:14px; }
+  .dashboard-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .hero-area,.forecast-area,.alert-area { grid-column:1/-1; grid-row:auto; }
+  .hero-area { grid-template-columns:1fr; }
+  .current-hero { min-height:270px; }
+  .metrics-grid { grid-template-columns:repeat(4,minmax(0,1fr)); }
+  .metric-card { min-height:185px; }
+  .forecast-section { min-height:220px; }
+  .forecast-card { min-height:180px; }
+  .radar-panel,.trend-panel,.moon-area,.air-panel,.sunmoon-panel,.detail-panel,.precipitation-panel,.dashboard-grid > .tile-panel:not(.precipitation-panel) { grid-column:auto; grid-row:auto; height:auto; min-height:170px; }
+  .radar-panel,.trend-panel { min-height:245px; }
+  .radar-map { height:160px; }
+}
+@media (max-width:650px) {
+  .dashboard-title { font-size:1.5rem; }
+  .header-actions { justify-content:flex-start; }
+  .dashboard-grid { grid-template-columns:1fr; }
+  .metrics-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .metric-card { min-height:160px; }
+  .forecast-grid { overflow-x:auto; grid-template-columns:repeat(5,minmax(104px,1fr)); }
+  .forecast-card { min-height:180px; }
+  .radar-panel,.trend-panel,.moon-area,.air-panel,.sunmoon-panel,.detail-panel,.precipitation-panel,.dashboard-grid > .tile-panel:not(.precipitation-panel) { grid-column:1/-1; }
+}

@@ -19,7 +19,6 @@ import { TemperatureTrend } from './components/weather/TemperatureTrend';
 import { StationDetails } from './components/weather/StationDetails';
 import { PrecipitationPanel } from './components/weather/PrecipitationPanel';
 import { LightningPanel } from './components/weather/LightningPanel';
-import { StationCamera } from './components/weather/StationCamera';
 import { GlassCard } from './components/ui/GlassCard';
 
 const emptyContact: Contact = {
@@ -161,7 +160,7 @@ function AppShell() {
         )}
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard" element={<DashboardPage data={data} condition={activeCondition} />} />
+          <Route path="/dashboard" element={<DashboardPage data={data} />} />
           <Route path="/history" element={<ControlsGate><HistoryPage data={data} /></ControlsGate>} />
           <Route path="/alarms" element={<ControlsGate><AlarmsPage data={data} config={config} /></ControlsGate>} />
           <Route path="/reports" element={<ControlsGate><ReportsPage data={data} config={config} reloadConfig={reload} /></ControlsGate>} />
@@ -239,15 +238,15 @@ function MobileNav() {
   );
 }
 
-function DashboardPage({ data, condition }: { data: WeatherStationData; condition: WeatherCondition }) {
+function DashboardPage({ data }: { data: WeatherStationData }) {
   return (
     <>
-      <AlertBar alerts={data.alerts} />
       <section className="dashboard-grid">
         <div className="hero-area">
           <CurrentConditions current={data.current} />
         </div>
         <div className="forecast-area"><ForecastStrip forecast={data.forecast} /></div>
+        <div className="alert-area"><AlertBar alerts={data.alerts} /></div>
         <div className="moon-area"><MoonPanel moon={data.moon} /></div>
         <RadarPanel radar={data.radar} />
         <AirQualityPanel airQuality={data.airQuality} />
@@ -256,7 +255,6 @@ function DashboardPage({ data, condition }: { data: WeatherStationData; conditio
         <StationDetails station={data.station} />
         <PrecipitationPanel precipitation={data.precipitation} />
         <LightningPanel lightning={data.lightning} />
-        <StationCamera condition={condition} snapshotUrl={data.camera.snapshotUrl} name={data.camera.name} />
       </section>
     </>
   );
