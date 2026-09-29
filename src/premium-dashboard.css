@@ -41,7 +41,7 @@
 .hero-area { grid-column:1/-1; display:grid; grid-template-columns:minmax(340px,4fr) minmax(0,8fr); gap:12px; }
 .current-hero { min-height:305px; padding:20px 24px; border-radius:9px; background:linear-gradient(90deg,rgba(3,15,29,.82),rgba(7,25,40,.20)),url('/storm-ridge.png') 52% 62% / cover no-repeat !important; }
 .current-hero::after { content:""; pointer-events:none; position:absolute; inset:0; background:radial-gradient(ellipse at 84% 67%,rgba(156,205,223,.22),transparent 36%),linear-gradient(0deg,rgba(1,10,19,.58),transparent 50%); }
-.current-hero > * { position:relative; z-index:1; }
+.current-hero > .relative { position:relative; z-index:1; }
 .current-hero-content { margin-top:16px; }
 .temperature-readout { font-family:Georgia,'Times New Roman',serif; font-size:clamp(4rem,6vw,6.6rem); font-weight:500; letter-spacing:-.055em; }
 .feels-like { font-size:1rem; color:#d3e7f0; }
@@ -75,8 +75,8 @@
 .trend-panel { grid-column:9/-1; grid-row:3; }
 .air-panel { grid-column:8/10; grid-row:4; }
 .sunmoon-panel { grid-column:10/-1; grid-row:4; }
-.detail-panel { grid-column:1/5; grid-row:4; }
-.precipitation-panel { grid-column:1/5; grid-row:3; }
+.detail-panel { grid-column:1/5; grid-row:5; }
+.precipitation-panel { grid-column:1/5; grid-row:4; }
 .dashboard-grid > .tile-panel:not(.precipitation-panel) { grid-column:5/9; grid-row:5; }
 .radar-panel,.trend-panel { min-height:258px; padding:14px; }
 .radar-map { height:170px; }
@@ -111,8 +111,8 @@
   .moon-area { grid-column:5/8 !important; }
   .air-panel { grid-column:8/10 !important; }
   .sunmoon-panel { grid-column:10/-1 !important; }
-  .station-details-panel { grid-column:1/5 !important; }
-  .precipitation-panel { grid-column:1/5 !important; grid-row:3; }
+  .station-details-panel { grid-column:1/5 !important; grid-row:5; }
+  .precipitation-panel { grid-column:1/5 !important; grid-row:4; }
   .dashboard-grid > .tile-panel:not(.precipitation-panel) { grid-column:5/9 !important; grid-row:5; }
 }
 @media (min-width:1200px) and (max-width:1550px) {
@@ -120,7 +120,7 @@
   .alert-area { grid-column:6/-1; }
   .radar-panel { grid-column:6/10 !important; }
   .trend-panel { grid-column:10/-1 !important; }
-  .precipitation-panel { grid-column:1/6 !important; }
+  .precipitation-panel { grid-column:1/5 !important; }
   .moon-area { grid-column:5/8 !important; }
   .forecast-card { padding-inline:4px; }
 }
@@ -149,3 +149,31 @@
   .forecast-card { min-height:180px; }
   .radar-panel,.trend-panel,.moon-area,.air-panel,.sunmoon-panel,.detail-panel,.precipitation-panel,.dashboard-grid > .tile-panel:not(.precipitation-panel) { grid-column:1/-1; }
 }
+/* Instrument faces reuse the live values supplied to the existing cards. */
+.metrics-grid .metric-card:nth-child(1) > .flex,
+.metrics-grid .metric-card:nth-child(3) > .flex,
+.metrics-grid .metric-card:nth-child(4) > .flex { display:none; }
+.metrics-grid .metric-card:nth-child(1) > p,
+.metrics-grid .metric-card:nth-child(3) > p,
+.metrics-grid .metric-card:nth-child(4) > p { order:3; margin-top:8px; text-align:center; }
+.metrics-grid .metric-card:nth-child(1) > .mt-auto,
+.metrics-grid .metric-card:nth-child(3) > .mt-auto,
+.metrics-grid .metric-card:nth-child(4) > .mt-auto { order:2; margin:auto 0 0; }
+.metrics-grid .metric-card:nth-child(1) > .metric-scale,
+.metrics-grid .metric-card:nth-child(3) > .metric-scale,
+.metrics-grid .metric-card:nth-child(4) > .metric-scale { order:4; }
+.instrument { display:grid; place-items:center; min-height:148px; }
+.instrument-ring,.uv-ring { position:relative; width:145px; height:145px; display:grid; place-items:center; border-radius:50%; }
+.instrument-ring { background:conic-gradient(from 210deg,#55c8fa 0 var(--reading),rgba(107,153,179,.24) var(--reading) 82%,transparent 82% 100%); }
+.instrument-ring::before,.uv-ring::before { content:""; position:absolute; inset:16px; border-radius:50%; background:#071b2b; }
+.instrument-ring strong,.uv-ring strong { position:relative; font:500 2.65rem Georgia,serif; color:#fff; }
+.instrument-ring small { font-size:1.2rem; }
+.compass-face { position:relative; width:148px; height:148px; display:grid; place-items:center; border:1px solid rgba(150,203,229,.48); border-radius:50%; background:repeating-conic-gradient(from 0deg,rgba(130,197,225,.20) 0deg 1deg,transparent 1deg 30deg),radial-gradient(circle,#071b2b 62%,#102f46); box-shadow:inset 0 0 0 13px #071b2b; }
+.compass-face span { position:absolute; color:#b5d4e5; font-size:.68rem; }
+.compass-face .north { top:8px; }.compass-face .south { bottom:8px; }.compass-face .west { left:9px; }.compass-face .east { right:9px; }
+.compass-face strong { font:500 2.7rem Georgia,serif; text-align:center; }
+.compass-face small { display:block; font:400 .76rem Arial,sans-serif; }
+.uv-ring { background:conic-gradient(from 210deg,#46d4bc,#80cf65,#e5ce43,#ed854d,#83384b 80%,transparent 80%); }
+.uv-ring::before { inset:17px; }
+.metrics-grid .metric-card:nth-child(2) .metric-position-gauge { margin-top:35px; }
+@media (max-width:1550px) { .instrument { min-height:110px; }.instrument-ring,.uv-ring,.compass-face { width:110px; height:110px; }.instrument-ring strong,.uv-ring strong,.compass-face strong { font-size:2.05rem; } }

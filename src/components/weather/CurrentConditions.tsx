@@ -12,7 +12,6 @@ export function CurrentConditions({ current, overrideCondition }: { current: Cur
   const condition = overrideCondition || current.condition;
   const theme = getConditionTheme(condition);
   const Icon = getConditionIcon(condition);
-  const humidityPosition = clampPercent(current.humidity);
   const pressurePosition = clampPercent(((current.pressure - 28.5) / 2) * 100);
   const windLabel = current.windSpeed < 1 && current.windGust < 1
     ? 'Calm'
@@ -55,8 +54,10 @@ export function CurrentConditions({ current, overrideCondition }: { current: Cur
 
       <div className="metrics-grid">
         <MetricCard title="Humidity" value={`${current.humidity}`} unit="%" label={current.humidityLabel} icon={Droplets} scale={['0', '50', '100']}>
-          <div className="metric-linear-gauge" aria-label={`Humidity ${current.humidity}%`}>
-            <span className="metric-linear-fill" style={{ width: `${humidityPosition}%` }} />
+          <div className="instrument humidity-instrument" aria-label={`Humidity ${current.humidity}%`}>
+            <div className="instrument-ring" style={{ '--reading': `${clampPercent(current.humidity)}%` } as React.CSSProperties}>
+              <strong>{current.humidity}<small>%</small></strong>
+            </div>
           </div>
         </MetricCard>
 
@@ -67,10 +68,8 @@ export function CurrentConditions({ current, overrideCondition }: { current: Cur
         </MetricCard>
 
         <MetricCard title="Wind" value={`${current.windSpeed}`} unit="mph" label={windLabel} icon={Wind} scale={['0', '10', '20', '30']}>
-          <div className="segmented-bar">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <span key={index} className={index < Math.ceil(current.windSpeed / 5) ? 'filled' : ''} />
-            ))}
+          <div className="instrument wind-instrument" aria-label={`${current.windSpeed} miles per hour from ${current.windDirection}, gust ${current.windGust}`}>
+            <div className="compass-face"><span className="north">N</span><span className="east">E</span><span className="south">S</span><span className="west">W</span><strong>{current.windSpeed}<small>mph</small></strong></div>
           </div>
         </MetricCard>
 
@@ -82,8 +81,8 @@ export function CurrentConditions({ current, overrideCondition }: { current: Cur
           scale={['0', '5', '11+']}
           accent="#fde047"
         >
-          <div className="uv-bar">
-            <span style={{ left: `${Math.min(100, (current.uvIndex / 11) * 100)}%` }} />
+          <div className="instrument uv-instrument">
+            <div className="uv-ring"><strong>{current.uvIndex}</strong></div>
           </div>
         </MetricCard>
       </div>
