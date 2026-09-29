@@ -13,7 +13,10 @@ export function RadarPanel({ radar }: { radar: RadarMetadata }) {
 
   return (
     <GlassCard className="radar-panel">
-      <div className="panel-kicker">Live Radar</div>
+      <div className="radar-heading">
+        <div className="panel-kicker">Live Radar</div>
+        <span>{updatedAt}</span>
+      </div>
       <div
         className="radar-map"
         style={{
@@ -48,23 +51,16 @@ export function RadarPanel({ radar }: { radar: RadarMetadata }) {
             opacity: .42,
           }}
         />
-        <span className="station-dot" aria-label="Station location" />
-        <span className="radar-crosshair horizontal" />
-        <span className="radar-crosshair vertical" />
-        <div className="radar-live-badge">LIVE RADAR</div>
-      </div>
-      <div className="radar-placeholder-label configured">
-        Live radar embed centered on 24354
       </div>
       <div className="radar-legend">
         {['Light', 'Moderate', 'Heavy', 'Severe'].map((item) => (
           <span key={item}>{item}</span>
         ))}
       </div>
-      <a className="radar-open-link" href={externalUrl} target="_blank" rel="noreferrer">
-        Open NOAA/NWS Radar
-      </a>
-      <div className="panel-source">Windy live radar embed • NOAA/NWS backup link • {updatedAt}</div>
+      <div className="radar-footer">
+        <span>Marion, VA · Windy radar</span>
+        <a href={externalUrl} target="_blank" rel="noreferrer">Open NOAA radar ↗</a>
+      </div>
     </GlassCard>
   );
 }

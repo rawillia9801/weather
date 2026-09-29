@@ -79,18 +79,18 @@
 .forecast-amount,.source-chip { display:none; }
 .alert-area { grid-column:5/-1; grid-row:2; }
 .alert-area .alert-bar { min-height:42px; border-radius:8px; padding:6px 14px; font-size:.81rem; }
-.moon-area { grid-column:5/8; grid-row:4; }
+.moon-area { grid-column:4/6; grid-row:4; }
 .radar-panel { grid-column:5/9; grid-row:3; }
 .trend-panel { grid-column:9/-1; grid-row:3; }
-.air-panel { grid-column:8/10; grid-row:4; }
-.sunmoon-panel { grid-column:10/-1; grid-row:4; }
-.detail-panel { grid-column:1/5; grid-row:5; }
-.precipitation-panel { grid-column:1/5; grid-row:4; }
+.air-panel { grid-column:6/8; grid-row:4; }
+.sunmoon-panel { grid-column:8/11; grid-row:4; }
+.lightning-panel { grid-column:11/13; grid-row:4; }
+.precipitation-panel { grid-column:1/4; grid-row:4; }
 .dashboard-grid > .tile-panel:not(.precipitation-panel) { grid-column:5/9; grid-row:5; }
 .radar-panel,.trend-panel { min-height:258px; padding:14px; }
 .radar-map { height:170px; }
 .trend-chart { height:190px !important; }
-.moon-area,.air-panel,.sunmoon-panel,.detail-panel,.precipitation-panel,.dashboard-grid > .tile-panel:not(.precipitation-panel) { min-height:178px; }
+.moon-area,.air-panel,.sunmoon-panel,.lightning-panel,.precipitation-panel { min-height:178px; }
 .site-footer { border-color:var(--wx-line); color:#87a5b6; }
 @media (min-width:1200px) {
   .app-shell { grid-template-columns:144px minmax(0,1fr); padding:0; gap:0; }
@@ -117,21 +117,23 @@
   .trend-panel { grid-column:9/-1 !important; }
   .radar-map { height:170px; }
   .trend-chart { height:190px !important; }
-  .moon-area,.air-panel,.sunmoon-panel,.detail-panel,.precipitation-panel,.dashboard-grid > .tile-panel:not(.precipitation-panel) { grid-row:4; height:auto; min-height:178px; }
-  .moon-area { grid-column:5/8 !important; }
-  .air-panel { grid-column:8/10 !important; }
-  .sunmoon-panel { grid-column:10/-1 !important; }
-  .station-details-panel { grid-column:1/5 !important; grid-row:5; }
-  .precipitation-panel { grid-column:1/5 !important; grid-row:4; }
-  .dashboard-grid > .tile-panel:not(.precipitation-panel) { grid-column:5/9 !important; grid-row:5; }
+  .moon-area,.air-panel,.sunmoon-panel,.lightning-panel,.precipitation-panel { grid-row:4; height:auto; min-height:178px; }
+  .moon-area { grid-column:4/6 !important; }
+  .air-panel { grid-column:6/8 !important; }
+  .sunmoon-panel { grid-column:8/11 !important; }
+  .lightning-panel { grid-column:11/13 !important; }
+  .precipitation-panel { grid-column:1/4 !important; grid-row:4; }
 }
 @media (min-width:1200px) and (max-width:1550px) {
   .forecast-area { grid-column:1/6 !important; }
   .alert-area { grid-column:6/-1; }
   .radar-panel { grid-column:6/10 !important; }
   .trend-panel { grid-column:10/-1 !important; }
-  .precipitation-panel { grid-column:1/5 !important; }
-  .moon-area { grid-column:5/8 !important; }
+  .precipitation-panel { grid-column:1/5 !important; grid-row:4; }
+  .moon-area { grid-column:5/9 !important; grid-row:4; }
+  .air-panel { grid-column:9/13 !important; grid-row:4; }
+  .sunmoon-panel { grid-column:1/7 !important; grid-row:5; }
+  .lightning-panel { grid-column:7/13 !important; grid-row:5; }
   .forecast-card { padding-inline:4px; }
 }
 @media (max-width:1199px) {
@@ -145,7 +147,7 @@
   .metric-card { min-height:185px; }
   .forecast-section { min-height:220px; }
   .forecast-card { min-height:180px; }
-  .radar-panel,.trend-panel,.moon-area,.air-panel,.sunmoon-panel,.detail-panel,.precipitation-panel,.dashboard-grid > .tile-panel:not(.precipitation-panel) { grid-column:auto; grid-row:auto; height:auto; min-height:170px; }
+  .radar-panel,.trend-panel,.moon-area,.air-panel,.sunmoon-panel,.lightning-panel,.precipitation-panel { grid-column:auto; grid-row:auto; height:auto; min-height:170px; }
   .radar-panel,.trend-panel { min-height:245px; }
   .radar-map { height:160px; }
 }
@@ -157,7 +159,7 @@
   .metric-card { min-height:160px; }
   .forecast-grid { overflow-x:auto; grid-template-columns:repeat(5,minmax(104px,1fr)); }
   .forecast-card { min-height:180px; }
-  .radar-panel,.trend-panel,.moon-area,.air-panel,.sunmoon-panel,.detail-panel,.precipitation-panel,.dashboard-grid > .tile-panel:not(.precipitation-panel) { grid-column:1/-1; }
+  .radar-panel,.trend-panel,.moon-area,.air-panel,.sunmoon-panel,.lightning-panel,.precipitation-panel { grid-column:1/-1; }
 }
 /* Instrument faces reuse the live values supplied to the existing cards. */
 .metrics-grid .metric-card:nth-child(1) > .flex,
@@ -187,3 +189,25 @@
 .uv-ring::before { inset:17px; }
 .metrics-grid .metric-card:nth-child(2) .metric-position-gauge { margin-top:35px; }
 @media (max-width:1550px) { .instrument { min-height:110px; }.instrument-ring,.uv-ring,.compass-face { width:110px; height:110px; }.instrument-ring strong,.uv-ring strong,.compass-face strong { font-size:2.05rem; } }
+/* Fine detail pass: labels have dedicated space and no footer overlays. */
+.forecast-day { font-size:.76rem; letter-spacing:.03em; }
+.forecast-temps span:first-child { font-size:clamp(1.25rem,1.5vw,1.65rem); }
+.forecast-temps span:last-child { font-size:clamp(.95rem,1.1vw,1.2rem); }
+.forecast-label,.forecast-pop { font-size:.7rem; }
+.forecast-card .forecast-icon-wrap svg { width:clamp(38px,3.5vw,60px); height:clamp(38px,3.5vw,60px); }
+.radar-panel { display:flex; flex-direction:column; }
+.radar-heading { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+.radar-heading > span { color:#a9c4d3; font-size:.7rem; white-space:nowrap; }
+.radar-panel .radar-map { flex:1; min-height:155px; margin-top:8px; }
+.radar-panel .radar-legend { margin:7px 4px 0; font-size:.58rem; }
+.radar-footer { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:7px; color:#9fbbcb; font-size:.66rem; white-space:nowrap; }
+.radar-footer a { color:#8bdafa; text-decoration:none; }
+.radar-footer a:hover { text-decoration:underline; }
+.lightning-panel { display:flex; flex-direction:column; padding:13px; }
+.lightning-content { display:flex; flex:1; flex-direction:column; align-items:center; justify-content:center; gap:7px; text-align:center; }
+.lightning-content > svg { width:36px; height:36px; color:#9fc0d0; }
+.lightning-content strong { font-size:1.1rem; font-weight:600; color:#e6f1f6; }
+.lightning-content span,.lightning-content small { color:#9eb8c7; font-size:.7rem; line-height:1.35; }
+.lightning-content:not(.lightning-unavailable) strong { font:500 2.2rem Georgia,serif; }
+.metrics-grid .metric-card:nth-child(2) > .mt-auto { margin-top:auto; margin-bottom:20px; }
+.metrics-grid .metric-card:nth-child(2) .metric-position-gauge { margin-top:0; height:10px; }

@@ -16,7 +16,6 @@ import { RadarPanel } from './components/weather/RadarPanel';
 import { AirQualityPanel } from './components/weather/AirQualityPanel';
 import { SunMoonPanel } from './components/weather/SunMoonPanel';
 import { TemperatureTrend } from './components/weather/TemperatureTrend';
-import { StationDetails } from './components/weather/StationDetails';
 import { PrecipitationPanel } from './components/weather/PrecipitationPanel';
 import { LightningPanel } from './components/weather/LightningPanel';
 import { GlassCard } from './components/ui/GlassCard';
@@ -252,7 +251,6 @@ function DashboardPage({ data }: { data: WeatherStationData }) {
         <AirQualityPanel airQuality={data.airQuality} />
         <SunMoonPanel data={data.sunMoon} />
         <TemperatureTrend data={data.hourlyTrend} />
-        <StationDetails station={data.station} />
         <PrecipitationPanel precipitation={data.precipitation} />
         <LightningPanel lightning={data.lightning} />
       </section>
