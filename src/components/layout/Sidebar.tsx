@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Bell, CloudLightning, FileText, History, Home, MapPin, Settings, Signal } from 'lucide-react';
+import { Bell, FileText, History, Home, MapPin, MountainSnow, Settings, Signal } from 'lucide-react';
 import type { StationStatus } from '../../types/weather';
 
 const navItems = [
@@ -18,7 +18,7 @@ export function Sidebar({ status }: { status: StationStatus }) {
   return (
     <aside className="sidebar">
       <div className="station-logo" aria-label="Staley Street Weather logo">
-        <CloudLightning className="h-10 w-10" />
+        <MountainSnow className="h-10 w-10" />
       </div>
 
       <nav className="sidebar-nav" aria-label="Primary navigation">

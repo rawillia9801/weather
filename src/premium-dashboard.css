@@ -38,8 +38,12 @@
 .current-hero { min-height:340px; padding:20px 24px; border-radius:9px; background:linear-gradient(90deg,rgba(3,15,29,.60),rgba(7,25,40,.06)) !important; }
 .current-hero::after { content:""; pointer-events:none; position:absolute; inset:0; background:radial-gradient(ellipse at 84% 67%,rgba(156,205,223,.22),transparent 36%),linear-gradient(0deg,rgba(1,10,19,.58),transparent 50%); }
 .current-hero::before,.current-hero .weather-texture,.current-hero .distant-trees,.current-hero .weather-animation { display:none; }
-.current-hero > .relative { position:relative; z-index:1; }
-.current-hero-content { margin-top:16px; }
+.current-hero > .relative { position:relative; z-index:1; display:flex; flex-direction:column; }
+.current-hero-content { flex:1; margin-top:16px; }
+.current-hero-content > div:first-child { display:flex; flex-direction:column; }
+.hero-condition-label { margin-top:14px; font:500 clamp(1.4rem,2vw,2.1rem) Georgia,serif; color:#fff; }
+.high-low-row { margin-top:auto; padding-bottom:3px; }
+.hero-condition-art svg { width:clamp(96px,8vw,145px); height:clamp(96px,8vw,145px); opacity:.85; }
 .temperature-readout { font-family:Georgia,'Times New Roman',serif; font-size:clamp(4rem,6vw,6.6rem); font-weight:500; letter-spacing:-.055em; }
 .feels-like { font-size:1rem; color:#d3e7f0; }
 .high-low-row { margin-top:24px; }

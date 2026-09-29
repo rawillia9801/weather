@@ -26,8 +26,9 @@ export function CurrentConditions({ current, overrideCondition }: { current: Cur
             <div>
               <div className="temperature-readout">
                 {current.temperature.toFixed(1)}
-                <span>F</span>
+                <span>°F</span>
               </div>
+              <div className="hero-condition-label">{theme.label}</div>
               <div className="feels-like">Feels Like {current.feelsLike}&deg;</div>
               <div className="high-low-row">
                 <div>
@@ -46,7 +47,6 @@ export function CurrentConditions({ current, overrideCondition }: { current: Cur
             </div>
             <div className="hero-condition-art">
               <Icon style={{ color: theme.accent }} strokeWidth={1.5} />
-              <div>{theme.label}</div>
             </div>
           </div>
         </div>
