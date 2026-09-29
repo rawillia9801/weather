@@ -39,7 +39,7 @@
 .panel-kicker,.metric-title { color:#d4e9f3; font-size:.78rem; font-weight:700; letter-spacing:.075em; }
 .dashboard-grid { grid-template-columns:repeat(12,minmax(0,1fr)); grid-template-rows:auto; grid-auto-rows:auto; gap:12px; margin-top:0; }
 .hero-area { grid-column:1/-1; display:grid; grid-template-columns:minmax(340px,4fr) minmax(0,8fr); gap:12px; }
-.current-hero { min-height:305px; padding:20px 24px; border-radius:9px; background:linear-gradient(90deg,rgba(3,15,29,.82),rgba(7,25,40,.20)),url('/storm-ridge.png') 52% 62% / cover no-repeat; }
+.current-hero { min-height:305px; padding:20px 24px; border-radius:9px; background:linear-gradient(90deg,rgba(3,15,29,.82),rgba(7,25,40,.20)),url('/storm-ridge.png') 52% 62% / cover no-repeat !important; }
 .current-hero::after { content:""; pointer-events:none; position:absolute; inset:0; background:radial-gradient(ellipse at 84% 67%,rgba(156,205,223,.22),transparent 36%),linear-gradient(0deg,rgba(1,10,19,.58),transparent 50%); }
 .current-hero > * { position:relative; z-index:1; }
 .current-hero-content { margin-top:16px; }
