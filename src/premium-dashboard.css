@@ -27,6 +27,12 @@
 .header-subtitle { margin-top:5px; color:#a8d3e8; letter-spacing:.11em; text-transform:uppercase; font-size:.72rem; }
 .header-subtitle .live-badge { display:none; }
 .header-actions { align-items:center; }
+.header-live-stack { display:flex; flex-direction:column; align-items:flex-start; gap:2px; min-width:245px; }
+.header-live-stack .live-badge { height:auto; padding:0; border:0; background:none; color:#d4e9e3; font-size:.73rem; font-weight:600; letter-spacing:.05em; }
+.header-live-stack .live-dot { width:9px; height:9px; }
+.header-live-stack .time-pill { padding:0 0 0 18px; font-size:.79rem; }
+.header-live-stack .time-pill svg { display:none; }
+.header-live-stack small { padding-left:18px; color:#c1d2df; font-size:.65rem; }
 .header-actions > .live-badge { order:-1; border:0; background:transparent; color:#b8e6d0; }
 .time-pill { height:auto; border:0; background:transparent; color:#cbd9e6; }
 .top-tabs { display:none; }
@@ -42,7 +48,9 @@
 .current-hero-content { flex:1; margin-top:16px; }
 .current-hero-content > div:first-child { display:flex; flex-direction:column; }
 .hero-condition-label { margin-top:14px; font:500 clamp(1.4rem,2vw,2.1rem) Georgia,serif; color:#fff; }
-.high-low-row { margin-top:auto; padding-bottom:3px; }
+.high-low-row { position:absolute; left:0; bottom:7px; display:flex; align-items:center; gap:14px; margin:0; padding:0; color:#d6e9f3; font:400 clamp(.85rem,1.15vw,1.15rem) Georgia,serif; }
+.high-low-row strong { color:#fff; font-weight:500; font-size:1.24em; }
+.high-low-divider { width:1px; height:22px; background:rgba(191,221,237,.45); }
 .hero-condition-art svg { width:clamp(96px,8vw,145px); height:clamp(96px,8vw,145px); opacity:.85; }
 .temperature-readout { font-family:Georgia,'Times New Roman',serif; font-size:clamp(4rem,6vw,6.6rem); font-weight:500; letter-spacing:-.055em; }
 .feels-like { font-size:1rem; color:#d3e7f0; }

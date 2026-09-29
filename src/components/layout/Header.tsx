@@ -38,11 +38,14 @@ export function Header({ station, clock, status }: { station: StationInfo; clock
       </div>
 
       <div className="header-actions">
-        <div className="time-pill">
-          <Clock3 className="h-4 w-4" />
-          {timeLabel}
+        <div className="header-live-stack">
+          <LiveBadge label={status.online ? 'LIVE FROM STALEY STREET' : badgeLabel} tone={badgeTone} />
+          <div className="time-pill">
+            <Clock3 className="h-4 w-4" />
+            {timeLabel}
+          </div>
+          <small>Weather Station {station.id} · Updates every 2 minutes</small>
         </div>
-        <LiveBadge label={badgeLabel} tone={badgeTone} />
         <nav className="top-tabs" aria-label="Dashboard sections">
           {tabs.map(({ label, icon: Icon, to, badge }) => (
             <NavLink key={label} to={to} className={({ isActive }) => `top-tab ${isActive ? 'active' : ''}`} aria-label={label}>

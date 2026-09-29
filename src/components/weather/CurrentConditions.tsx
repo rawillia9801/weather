@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Droplets, Gauge, Sun, Wind } from 'lucide-react';
+import { Droplets, Gauge, Sun, Wind } from 'lucide-react';
 import type { CurrentConditions as CurrentConditionsType, WeatherCondition } from '../../types/weather';
 import { getConditionIcon, getConditionTheme, getUvLabel } from '../../lib/weatherThemes';
 import { ConditionBackdrop } from './ConditionBackdrop';
@@ -31,18 +31,9 @@ export function CurrentConditions({ current, overrideCondition }: { current: Cur
               <div className="hero-condition-label">{theme.label}</div>
               <div className="feels-like">Feels Like {current.feelsLike}&deg;</div>
               <div className="high-low-row">
-                <div>
-                  <div className="high-low-value">
-                    <ArrowUp className="high-icon" /> {current.high}&deg;
-                  </div>
-                  <div className="high-low-label">Forecast High</div>
-                </div>
-                <div>
-                  <div className="high-low-value">
-                    <ArrowDown className="low-icon" /> {current.low}&deg;
-                  </div>
-                  <div className="high-low-label">Forecast Low</div>
-                </div>
+                <span>High <strong>{current.high}&deg;</strong></span>
+                <span className="high-low-divider" aria-hidden="true" />
+                <span>Low <strong>{current.low}&deg;</strong></span>
               </div>
             </div>
             <div className="hero-condition-art">
