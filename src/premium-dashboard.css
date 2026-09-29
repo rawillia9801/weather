@@ -5,17 +5,13 @@
   gap:0; padding:0;
   background: radial-gradient(ellipse at 58% -8%,#27435b 0%,#12283b 29%,#071624 58%,#04101c 100%);
 }
-.global-atmosphere, .app-shell[data-condition] .global-atmosphere {
-  position:absolute; height:280px; bottom:auto; opacity:1;
-  background:
-    linear-gradient(180deg,rgba(4,14,27,.30),rgba(4,14,27,.30) 38%,#061320 100%),
-    url('/storm-ridge.png') center 38% / cover no-repeat,
-    radial-gradient(ellipse at 73% 13%,rgba(205,226,237,.26),transparent 10%),
-    radial-gradient(ellipse at 67% 5%,#43556a 0 10%,transparent 34%),
-    radial-gradient(ellipse at 34% 7%,#172b41 0 21%,transparent 47%),
-    linear-gradient(180deg,rgba(4,12,24,.24),rgba(4,13,25,.24) 45%,#061320 100%);
+.global-atmosphere, .app-shell[data-condition] .global-atmosphere { display:none; }
+.main-dashboard { padding:18px 17px 20px; isolation:isolate; }
+.main-dashboard::before {
+  content:""; position:absolute; z-index:-1; pointer-events:none;
+  top:0; left:0; right:0; height:490px;
+  background:linear-gradient(180deg,rgba(2,10,22,.14) 0%,rgba(3,14,28,.12) 40%,#061320 100%),url('/storm-ridge.png') center 48% / cover no-repeat;
 }
-.main-dashboard { padding:18px 17px 20px; }
 .sidebar { position:sticky; top:0; height:100vh; padding:20px 10px; border:0; border-right:1px solid var(--wx-line); border-radius:0; background:linear-gradient(180deg,#071a2b,#05111e); box-shadow:none; }
 .station-logo { height:62px; border:0; border-radius:0; box-shadow:none; color:#75bfdf; }
 .station-logo svg { width:54px; height:54px; stroke-width:1; }
@@ -39,16 +35,17 @@
 .panel-kicker,.metric-title { color:#d4e9f3; font-size:.78rem; font-weight:700; letter-spacing:.075em; }
 .dashboard-grid { grid-template-columns:repeat(12,minmax(0,1fr)); grid-template-rows:auto; grid-auto-rows:auto; gap:12px; margin-top:0; }
 .hero-area { grid-column:1/-1; display:grid; grid-template-columns:minmax(340px,4fr) minmax(0,8fr); gap:12px; }
-.current-hero { min-height:305px; padding:20px 24px; border-radius:9px; background:linear-gradient(90deg,rgba(3,15,29,.82),rgba(7,25,40,.20)),url('/storm-ridge.png') 52% 62% / cover no-repeat !important; }
+.current-hero { min-height:340px; padding:20px 24px; border-radius:9px; background:linear-gradient(90deg,rgba(3,15,29,.60),rgba(7,25,40,.06)) !important; }
 .current-hero::after { content:""; pointer-events:none; position:absolute; inset:0; background:radial-gradient(ellipse at 84% 67%,rgba(156,205,223,.22),transparent 36%),linear-gradient(0deg,rgba(1,10,19,.58),transparent 50%); }
+.current-hero::before,.current-hero .weather-texture,.current-hero .distant-trees,.current-hero .weather-animation { display:none; }
 .current-hero > .relative { position:relative; z-index:1; }
 .current-hero-content { margin-top:16px; }
 .temperature-readout { font-family:Georgia,'Times New Roman',serif; font-size:clamp(4rem,6vw,6.6rem); font-weight:500; letter-spacing:-.055em; }
 .feels-like { font-size:1rem; color:#d3e7f0; }
 .high-low-row { margin-top:24px; }
 .hero-condition-art svg { width:76px; height:76px; }
-.metrics-grid { gap:12px; }
-.metric-card { min-height:305px; padding:18px 16px; border-radius:9px; }
+.metrics-grid { gap:12px; padding-top:64px; }
+.metric-card { min-height:276px; padding:18px 16px; border-radius:9px; }
 .metric-card svg { width:25px; height:25px; }
 .metric-value { font-family:Georgia,'Times New Roman',serif; font-weight:500; font-size:clamp(2rem,2.6vw,3.2rem); }
 .metric-card p { color:#c1d4e0; }
@@ -92,7 +89,8 @@
   .dashboard-title { font-size:clamp(1.65rem,2.4vw,2.7rem); }
   .dashboard-grid { grid-template-columns:repeat(12,minmax(0,1fr)) !important; grid-template-rows:auto; grid-auto-rows:auto; gap:12px; margin-top:0; }
   .hero-area { grid-column:1/-1 !important; grid-row:1; height:auto; grid-template-columns:minmax(340px,4fr) minmax(0,8fr); gap:12px; }
-  .current-hero,.metric-card,.metrics-grid { height:305px; min-height:305px; }
+  .current-hero,.metrics-grid { height:340px; min-height:340px; }
+  .metric-card { height:276px; min-height:276px; }
   .current-hero { padding:20px 24px; }
   .temperature-readout { font-size:clamp(4rem,6vw,6.6rem); }
   .metric-card { padding:18px 16px; }
@@ -131,7 +129,7 @@
   .hero-area,.forecast-area,.alert-area { grid-column:1/-1; grid-row:auto; }
   .hero-area { grid-template-columns:1fr; }
   .current-hero { min-height:270px; }
-  .metrics-grid { grid-template-columns:repeat(4,minmax(0,1fr)); }
+  .metrics-grid { grid-template-columns:repeat(4,minmax(0,1fr)); padding-top:0; }
   .metric-card { min-height:185px; }
   .forecast-section { min-height:220px; }
   .forecast-card { min-height:180px; }
