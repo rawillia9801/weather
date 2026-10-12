@@ -175,15 +175,14 @@ function hourlyFromWeatherCom(payload) {
 
 async function getNwsBundle() {
   const point = await getJson(`https://api.weather.gov/points/${LATITUDE},${LONGITUDE}`);
-  const [daily, hourly, alerts] = await Promise.all([
+  const [daily, hourly] = await Promise.all([
     getJson(point.properties.forecast),
     getJson(point.properties.forecastHourly),
-    getJson(`https://api.weather.gov/alerts/active?point=${LATITUDE},${LONGITUDE}`).catch(() => ({ features: [] })),
   ]);
   return {
     forecast: forecastFromNws(daily),
     hourlyTrend: hourlyFromNws(hourly),
-    alerts: alertsFromNws(alerts),
+    alerts: [],
   };
 }
 
@@ -217,14 +216,19 @@ function hourlyFromNws(payload) {
 }
 
 function alertsFromNws(payload) {
-  return (payload?.features || []).slice(0, 3).map((feature, index) => {
-    const title = feature.properties?.event || feature.properties?.headline || 'Weather alert';
+  const priority = { warning: 3, watch: 2, advisory: 1, calm: 0 };
+  return (payload?.features || []).map((feature, index) => {
+    const properties = feature.properties || {};
+    const title = properties.event || properties.headline || 'Weather alert';
+    const severity = /warning|emergency/i.test(title) || (properties.severity === 'Extreme' && !/watch/i.test(title))
+      ? 'warning'
+      : /watch/i.test(title) ? 'watch' : 'advisory';
     return {
-      id: feature.properties?.id || feature.id || `alert-${index}`,
+      id: properties.id || feature.id || `alert-${index}`,
       title,
-      severity: /warning/i.test(title) ? 'warning' : /watch/i.test(title) ? 'watch' : 'advisory',
+      severity,
     };
-  });
+  }).sort((a, b) => priority[b.severity] - priority[a.severity]).slice(0, 8);
 }
 
 function cleanProviderReason(error) {
@@ -621,7 +625,10 @@ async function buildWeather() {
       bundle = {
         forecast: forecastFromWeatherCom(dailyPayload),
         hourlyTrend: hourlyFromWeatherCom(hourlyPayload),
-        alerts: (alertPayload.alerts || []).slice(0, 3).map((alert, index) => ({ id: alert.detailKey || `alert-${index}`, title: alert.eventDescription || alert.headlineText || 'Weather alert', severity: 'advisory' })),
+        alerts: (alertPayload.alerts || []).slice(0, 8).map((alert, index) => {
+          const title = alert.eventDescription || alert.headlineText || 'Weather alert';
+          return { id: alert.detailKey || `alert-${index}`, title, severity: /warning|emergency/i.test(title) ? 'warning' : /watch/i.test(title) ? 'watch' : 'advisory' };
+        }),
       };
       dataSource.forecast = 'Weather.com';
     } catch (error) {
@@ -651,6 +658,18 @@ async function buildWeather() {
   }
 
   if (!bundle) throw new Error(dataSource.errors.map((entry) => `${entry.source}: ${entry.message}`).join(' | ') || 'No weather source returned data');
+
+  // Always retrieve current NOAA/NWS alerts at the station location,
+  // independently of the forecast service, and put warnings first.
+  let alertFeedStatus = 'fallback';
+  try {
+    const activeNwsAlerts = await getJson(`https://api.weather.gov/alerts/active?point=${LATITUDE},${LONGITUDE}`);
+    bundle.alerts = alertsFromNws(activeNwsAlerts);
+    alertFeedStatus = 'live';
+  } catch (error) {
+    alertFeedStatus = bundle.alerts?.length ? 'fallback' : 'unavailable';
+    dataSource.errors.push(sourceError('NWS active alerts', error));
+  }
 
   bundle.forecast = mergeForecastAmounts(bundle.forecast, openMeteoForecast, dataSource.forecast);
   if (!bundle.hourlyTrend?.length && openMeteo) bundle.hourlyTrend = hourlyFromOpenMeteo(openMeteo.payload);
@@ -711,6 +730,7 @@ async function buildWeather() {
     forecast: bundle.forecast,
     hourlyTrend: bundle.hourlyTrend,
     alerts: bundle.alerts,
+    alertFeedStatus,
     airQuality,
     moon: { ...moon, phase: daily?.moonPhase?.[0] || moon.phase, illumination: n(daily?.moonIllumination?.[0], moon.illumination), age: n(daily?.moonAge?.[0], moon.age) },
     sunMoon: { sunrise: time(daily?.sunriseTimeLocal?.[0]) || time(openMeteo?.payload?.daily?.sunrise?.[0]), daylight: openMeteo?.payload?.daily?.daylight_duration?.[0] ? `${Math.round(openMeteo.payload.daily.daylight_duration[0] / 3600)}h ${Math.round((openMeteo.payload.daily.daylight_duration[0] % 3600) / 60)}m` : 'Unavailable', sunset: time(daily?.sunsetTimeLocal?.[0]) || time(openMeteo?.payload?.daily?.sunset?.[0]), moonrise: time(daily?.moonriseTimeLocal?.[0]), visible: 'Unavailable', moonset: time(daily?.moonsetTimeLocal?.[0]) },
