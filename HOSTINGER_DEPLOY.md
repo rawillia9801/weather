@@ -1,6 +1,6 @@
-# Hostinger Deployment
+# Hostinger Deployment (Legacy Reference Only)
 
-This app is not a static-only Vite site. It needs the Node/Express server because the React dashboard calls `/api/weather`, `/api/app-config`, and `/api/daily-brief/*`.
+> **Legacy / not the current deployment target (October 2026):** Staley Street Weather production runs on **Vercel**, connected to `rawillia9801/weather` on the `main` branch. Do not deploy the site to Hostinger. Hostinger is used only for the `alerts@staleyclimate.info` email mailbox. See [VERCEL_DEPLOY.md](./VERCEL_DEPLOY.md) for current operations.\n\nThis app is not a static-only Vite site. It needs the Node/Express server because the React dashboard calls `/api/weather`, `/api/app-config`, and `/api/daily-brief/*`.
 
 If the live page looks unstyled or says every value is unavailable while localhost is correct, check two things:
 
