@@ -10,8 +10,10 @@ const cfg = {
   supabaseAnonKey: envValue('NEXT_PUBLIC_SUPABASE_ANON_KEY') || envValue('VITE_SUPABASE_ANON_KEY') || envValue('SUPABASE_ANON_KEY'),
   weatherKey: process.env.WEATHER_API_KEY,
   cameraUrl: process.env.LOREX_CAMERA_SNAPSHOT_URL || process.env.STATION_CAMERA_SNAPSHOT_URL || process.env.STATION_CAMERA_URL || '',
-  resendApiKey: process.env.RESEND_API_KEY,
-  resendFromEmail: process.env.RESEND_FROM_EMAIL || process.env.ALERT_EMAIL,
+  smtpHost: process.env.SMTP_HOST || 'smtp.hostinger.com',
+  smtpUser: process.env.SMTP_USER,
+  smtpPassword: process.env.SMTP_PASSWORD,
+  smtpFromEmail: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER,
   twilioAccountSid: process.env.TWILIO_ACCOUNT_SID,
   twilioAuthToken: process.env.TWILIO_AUTH_TOKEN,
   twilioApiKeySecret: process.env.TWILIO_API_KEY_SECRET,
@@ -136,7 +138,7 @@ function first(rows, fallbackValue) {
 }
 
 function integrationStatus(rows) {
-  const names = ['Weather Underground PWS', 'Forecast source', 'UV source', 'AQI source', 'Radar source', 'Camera source', 'Supabase', 'Resend', 'Twilio'];
+  const names = ['Weather Underground PWS', 'Forecast source', 'UV source', 'AQI source', 'Radar source', 'Camera source', 'Supabase', 'SMTP Email', 'Twilio'];
   const existing = new Map((rows || []).map((row) => [row.integration_name, row]));
   return names.map((name) => {
     const fallbackConfigured =
@@ -147,7 +149,7 @@ function integrationStatus(rows) {
       name === 'Radar source' ? true :
       name === 'Camera source' ? Boolean(cfg.cameraUrl) :
       name === 'Supabase' ? supabaseCanRead() :
-      name === 'Resend' ? Boolean(cfg.resendApiKey && cfg.resendFromEmail) :
+      name === 'SMTP Email' ? Boolean(cfg.smtpHost && cfg.smtpUser && cfg.smtpPassword && cfg.smtpFromEmail) :
       name === 'Twilio' ? Boolean((cfg.twilioAuthToken || cfg.twilioApiKeySecret) && (cfg.twilioFromNumber || cfg.twilioMessagingServiceSid)) :
       false;
     const fallbackLabel =
@@ -205,7 +207,7 @@ export default async function handler(req, res) {
         anonSegments: jwtSegments(cfg.supabaseAnonKey),
       },
       deliveryConfigured: {
-        resend: Boolean(cfg.resendApiKey && cfg.resendFromEmail),
+        smtp: Boolean(cfg.smtpHost && cfg.smtpUser && cfg.smtpPassword && cfg.smtpFromEmail),
         twilio: Boolean((cfg.twilioAuthToken || cfg.twilioApiKeySecret) && (cfg.twilioFromNumber || cfg.twilioMessagingServiceSid)),
       },
       cameraConfigured: Boolean(cfg.cameraUrl),
@@ -230,7 +232,7 @@ export default async function handler(req, res) {
         anonConfigured: Boolean(cfg.supabaseAnonKey),
         anonSegments: jwtSegments(cfg.supabaseAnonKey),
       },
-      deliveryConfigured: { resend: Boolean(cfg.resendApiKey && cfg.resendFromEmail), twilio: Boolean((cfg.twilioAuthToken || cfg.twilioApiKeySecret) && (cfg.twilioFromNumber || cfg.twilioMessagingServiceSid)) },
+      deliveryConfigured: { smtp: Boolean(cfg.smtpHost && cfg.smtpUser && cfg.smtpPassword && cfg.smtpFromEmail), twilio: Boolean((cfg.twilioAuthToken || cfg.twilioApiKeySecret) && (cfg.twilioFromNumber || cfg.twilioMessagingServiceSid)) },
       cameraConfigured: Boolean(cfg.cameraUrl),
       ...fallback,
       integration_status: integrationStatus([]),
