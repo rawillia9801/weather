@@ -57,8 +57,11 @@ async function connectSmtp(host, port) {
       servername: host,
       rejectUnauthorized: true,
     });
+    // Attach the SMTP reply reader immediately, so the server greeting cannot
+    // arrive between TLS negotiation and our first awaited command.
+    const next = createReplies(socket);
     socket.setTimeout(25000);
-    socket.once('secureConnect', () => resolve(socket));
+    socket.once('secureConnect', () => resolve({ socket, next }));
     socket.once('error', reject);
     socket.once('timeout', () => {
       socket.destroy(new Error('SMTP connection timed out'));
@@ -107,8 +110,7 @@ export async function sendSmtpEmail({ host, port = 465, user, password, from, to
   if (!host || !user || !password) throw new Error('SMTP mailbox credentials are not configured');
   if (Number(port) !== 465) throw new Error('SMTP SSL requires port 465');
   const message = createMessage({ from: from || user, to, subject, text, html });
-  const socket = await connectSmtp(host, Number(port));
-  const next = createReplies(socket);
+  const { socket, next } = await connectSmtp(host, Number(port));
   const wait = async (expected) => {
     const response = await next();
     if (!expected.includes(response.code)) {
