@@ -3,6 +3,13 @@ import { cfg } from './_env.js';
 import { applyExternalBriefSources, loadExternalBriefSources } from './_externalBriefSources.js';
 
 export default async function handler(req, res) {
+  // Vercel Cron automatically includes the CRON_SECRET bearer token.
+  // Never expose recipient lists or trigger email deliveries anonymously.
+  const expectedToken = process.env.CRON_SECRET;
+  if (!expectedToken || req.headers?.authorization !== `Bearer ${expectedToken}`) {
+    return res.status(401).json({ error: 'Unauthorized scheduled request' });
+  }
+
   try {
     const { weather, contacts, schedule, localEvents } = await loadBriefInputs(req);
     if (!schedule.enabled || !schedule.email_enabled) {
