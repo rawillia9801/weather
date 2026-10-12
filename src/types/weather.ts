@@ -162,6 +162,7 @@ export interface WeatherStationData {
   forecast: ForecastDay[];
   hourlyTrend: HourlyTrendPoint[];
   alerts: Alert[];
+  alertFeedStatus?: 'live' | 'fallback' | 'unavailable';
   airQuality: AirQuality;
   moon: MoonData;
   sunMoon: SunMoonData;
