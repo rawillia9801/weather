@@ -1,6 +1,7 @@
 import { cfg } from './_env.js';
 import { logDelivery, safeSelect } from './_supabase.js';
 import weatherHandler from './weather.js';
+import { sendSmtpEmail } from './_smtp.js';
 
 export const DEFAULT_TEXT_TEMPLATE = `Live personal weather station
 Staley Street Weather Daily Brief
@@ -430,14 +431,37 @@ function escapeHtml(value) {
 }
 
 export async function sendEmail(contact, payload) {
-  if (!cfg.resendApiKey) return { contactId: contact.id, email: contact.email, ok: false, error: 'Resend is not configured' };
-  const response = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${cfg.resendApiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: cfg.resendFromEmail, to: [contact.email], subject: payload.subject, html: payload.html, text: payload.text }),
+  let result;
+  try {
+    const delivered = await sendSmtpEmail({
+      host: cfg.smtpHost,
+      port: cfg.smtpPort,
+      user: cfg.smtpUser,
+      password: cfg.smtpPassword,
+      from: cfg.smtpFromEmail,
+      to: contact.email,
+      subject: payload.subject,
+      html: payload.html,
+      text: payload.text,
+    });
+    result = { contactId: contact.id, email: contact.email, ok: true, smtpMessageId: delivered.messageId };
+  } catch (error) {
+    result = {
+      contactId: contact.id,
+      email: contact.email,
+      ok: false,
+      error: error instanceof Error ? error.message : 'SMTP email delivery failed',
+    };
+  }
+  await logDelivery({
+    generated_at: payload.generatedAt,
+    sent_at: new Date().toISOString(),
+    status: result.ok ? 'sent' : 'failed',
+    channel: 'email',
+    recipient_contact_id: contact.id,
+    recipient_value: contact.email,
+    subject: payload.subject,
+    error_message: result.error || null,
   });
-  const body = await response.json().catch(() => ({}));
-  const result = { contactId: contact.id, email: contact.email, ok: response.ok, resendMessageId: body.id, error: response.ok ? undefined : body.message || response.statusText };
-  await logDelivery({ generated_at: payload.generatedAt, sent_at: new Date().toISOString(), status: result.ok ? 'sent' : 'failed', channel: 'email', recipient_contact_id: contact.id, recipient_value: contact.email, subject: payload.subject, error_message: result.error, resend_message_id: result.resendMessageId });
   return result;
 }
