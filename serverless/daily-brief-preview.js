@@ -26,7 +26,7 @@ export default async function handler(req, res) {
       html: renderDailyBriefHtml(data, previewContact) || renderTextAsHtml(text, subject),
       sms: renderDailyBriefSms(data, previewContact),
       deliveryConfigured: {
-        resend: Boolean(cfg.resendApiKey && cfg.resendFromEmail),
+        smtp: Boolean(cfg.smtpHost && cfg.smtpUser && cfg.smtpPassword && cfg.smtpFromEmail),
         twilio: Boolean(cfg.twilioAccountSid && cfg.twilioApiKeySid && cfg.twilioApiKeySecret && cfg.twilioFromNumber),
       },
       contacts,
