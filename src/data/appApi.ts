@@ -66,7 +66,7 @@ export interface AppConfig {
     anonConfigured: boolean;
     anonSegments: number;
   };
-  deliveryConfigured: { resend: boolean; twilio: boolean };
+  deliveryConfigured: { smtp: boolean; twilio: boolean };
   cameraConfigured: boolean;
   station_settings: Record<string, unknown>;
   contacts: Contact[];
@@ -110,7 +110,7 @@ export interface DailyBriefPreview {
   html: string;
   sms: string;
   contacts: Contact[];
-  deliveryConfigured: { resend: boolean; twilio: boolean };
+  deliveryConfigured: { smtp: boolean; twilio: boolean };
   logs: Record<string, unknown>[];
 }
 
@@ -172,7 +172,7 @@ async function getSupabaseAppConfig(): Promise<AppConfig> {
       anonSegments: SUPABASE_ANON_KEY ? SUPABASE_ANON_KEY.split('.').length : 0,
     },
     deliveryConfigured: {
-      resend: integrationConfigured(integrations, 'Resend'),
+      smtp: integrationConfigured(integrations, 'SMTP Email'),
       twilio: integrationConfigured(integrations, 'Twilio'),
     },
     cameraConfigured: integrationConfigured(integrations, 'Camera source'),
@@ -202,7 +202,7 @@ function integrationConfigured(rows: IntegrationStatus[], name: string) {
 }
 
 function mergeIntegrationStatus(rows: IntegrationStatus[]) {
-  const names = ['Weather Underground PWS', 'Forecast source', 'UV source', 'AQI source', 'Radar source', 'Camera source', 'Supabase', 'Resend', 'Twilio'];
+  const names = ['Weather Underground PWS', 'Forecast source', 'UV source', 'AQI source', 'Radar source', 'Camera source', 'Supabase', 'SMTP Email', 'Twilio'];
   return names.map((name) => {
     const fallbackConfigured = name === 'Forecast source' || name === 'UV source' || name === 'AQI source' || name === 'Radar source' || (name === 'Supabase' && Boolean(SUPABASE_URL && SUPABASE_ANON_KEY));
     const statusLabel =
