@@ -58,7 +58,7 @@ async function fetchPublicWeatherFallback(reason: string): Promise<WeatherStatio
   const [forecastPayload, aqiPayload, alertsPayload] = await Promise.all([
     getJson(forecastUrl),
     getJson(aqiUrl).catch(() => null),
-    getJson(alertsUrl).catch(() => ({ features: [] })),
+    getJson(alertsUrl).catch(() => null),
   ]);
 
   return buildFallbackWeather(forecastPayload, aqiPayload, alertsPayload, reason);
@@ -121,7 +121,7 @@ function buildFallbackWeather(forecastPayload: any, aqiPayload: any, alertsPaylo
           feelsLike: round(forecastPayload.hourly.apparent_temperature?.[sourceIndex], forecastPayload.hourly.temperature_2m?.[sourceIndex]),
         };
       }),
-    alerts: (alertsPayload.features || []).slice(0, 3).map((feature: any, index: number) => {
+    alerts: (alertsPayload?.features || []).slice(0, 8).map((feature: any, index: number) => {
       const title = feature.properties?.event || feature.properties?.headline || 'Weather alert';
       return {
         id: feature.id || `alert-${index}`,
@@ -129,6 +129,7 @@ function buildFallbackWeather(forecastPayload: any, aqiPayload: any, alertsPaylo
         severity: /warning/i.test(title) ? 'warning' : /watch/i.test(title) ? 'watch' : 'advisory',
       };
     }),
+    alertFeedStatus: alertsPayload ? 'live' : 'unavailable',
     airQuality: buildAqi(aqiPayload),
     moon: {
       phase: 'Unavailable',
