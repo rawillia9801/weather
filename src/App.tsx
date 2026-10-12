@@ -146,7 +146,7 @@ function AppShell() {
       <div className="global-atmosphere" />
       <Sidebar status={data.stationStatus} />
       <main className="main-dashboard">
-        <Header station={data.station} clock={data.clock} status={data.stationStatus} />
+        <Header station={data.station} clock={data.clock} status={data.stationStatus} alerts={data.alerts} alertFeedStatus={data.alertFeedStatus} />
         <MobileNav />
         {import.meta.env.DEV && (
           <div className="dev-condition-select" aria-label="Development condition theme preview">
@@ -245,7 +245,7 @@ function DashboardPage({ data }: { data: WeatherStationData }) {
           <CurrentConditions current={data.current} />
         </div>
         <div className="forecast-area"><ForecastStrip forecast={data.forecast} /></div>
-        <div className="alert-area"><AlertBar alerts={data.alerts} /></div>
+        <div className="alert-area"><AlertBar alerts={data.alerts} feedStatus={data.alertFeedStatus} /></div>
         <div className="moon-area"><MoonPanel moon={data.moon} /></div>
         <RadarPanel radar={data.radar} />
         <AirQualityPanel airQuality={data.airQuality} />
@@ -556,7 +556,7 @@ function AlarmsPage({ data, config }: { data: WeatherStationData; config: AppCon
   return (
     <section className="page-view">
       <PageHeader title="Alarms" subtitle="Weather alerts, station alarms, and threshold notifications for Marion, Virginia." />
-      <AlertBar alerts={data.alerts} />
+      <AlertBar alerts={data.alerts} feedStatus={data.alertFeedStatus} />
       <div className="page-grid three">
         {alarms.map(([label, status, value]) => <AlarmCard key={label} label={label} status={status} value={value} />)}
       </div>
