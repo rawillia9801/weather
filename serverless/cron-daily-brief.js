@@ -1,5 +1,6 @@
 import { buildDailyBriefData, loadBriefInputs, renderDailyBriefHtml, renderDailyBriefSms, renderDailyBriefText, sendEmail } from './_dailyBrief.js';
 import { cfg } from './_env.js';
+import { applyExternalBriefSources, loadExternalBriefSources } from './_externalBriefSources.js';
 
 export default async function handler(req, res) {
   try {
@@ -8,7 +9,9 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, skipped: true, reason: 'Daily brief email schedule is disabled' });
     }
 
-    const data = buildDailyBriefData(weather, schedule, localEvents);
+    const baseData = buildDailyBriefData(weather, schedule, localEvents);
+    const external = await loadExternalBriefSources(baseData).catch(() => ({}));
+    const data = applyExternalBriefSources(baseData, external);
     const subject = schedule.subject_template
       ? String(schedule.subject_template).replace('{{date}}', new Date(data.generatedAt).toLocaleDateString('en-US', { timeZone: schedule.timezone || cfg.timeZone }))
       : `Staley Street Weather Daily Brief - Marion, VA - ${new Date(data.generatedAt).toLocaleDateString('en-US', { timeZone: schedule.timezone || cfg.timeZone })}`;
@@ -28,7 +31,7 @@ export default async function handler(req, res) {
 
     const emailResults = [];
     for (const contact of recipients) {
-      emailResults.push(await sendEmail(contact, payload));
+      emailResults.push(await sendEmail(contact, { ...payload, html: renderDailyBriefHtml(data, contact), text: renderDailyBriefText(data, contact) }));
     }
 
     return res.status(200).json({ ok: emailResults.every((result) => result.ok), emailResults });
