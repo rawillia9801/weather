@@ -218,3 +218,84 @@
 .moon-panel-v2 { height:100%; min-height:194px; }
 .moon-next-events { margin-top:8px; }
 @media (max-width:1199px) { .moon-area,.moon-panel-v2 { min-height:194px; } }
+
+
+/* Reduce the oversized forecast/radar/trend band to a compact control-room row. */
+@media (min-width: 1200px) {
+  .dashboard-grid {
+    grid-template-rows: 340px 42px 214px minmax(194px, auto) !important;
+    grid-auto-rows: auto !important;
+  }
+  .forecast-area { grid-row: 2 / 4; min-height: 0; }
+  .forecast-section { height: 100%; min-height: 0; overflow: hidden; padding: 12px 11px 10px; }
+  .forecast-grid { height: calc(100% - 26px); min-height: 0; }
+  .forecast-card { height: 100%; min-height: 0; padding: 9px 5px; }
+  .forecast-icon-wrap { min-height: 26px; }
+  .forecast-card .forecast-icon-wrap svg { width: clamp(33px, 2.7vw, 44px); height: clamp(33px, 2.7vw, 44px); }
+  .radar-panel, .trend-panel { grid-row: 3; height: 214px; min-height: 0; overflow: hidden; padding: 11px 12px; }
+  .radar-panel .radar-map { min-height: 0; height: auto; flex: 1 1 auto; margin-top: 6px; }
+  .radar-footer { font-size: .59rem; margin-top: 5px; }
+  .radar-panel .radar-legend { margin-top: 5px; }
+  .trend-chart { height: 166px !important; margin-top: 3px !important; }
+}
+@media (min-width: 1200px) and (max-width: 1550px) {
+  .forecast-card { padding-inline: 4px; }
+}
+@media (min-width: 651px) and (max-width: 1199px) {
+  .forecast-section { min-height: 188px; }
+  .forecast-card { min-height: 146px; }
+  .radar-panel, .trend-panel { min-height: 210px; }
+  .radar-panel .radar-map { min-height: 125px; }
+  .trend-chart { height: 151px !important; }
+}
+@media (max-width: 650px) {
+  .forecast-section { min-height: 182px; }
+  .forecast-card { min-height: 142px; }
+  .radar-panel, .trend-panel { min-height: 215px; }
+  .radar-panel .radar-map { min-height: 126px; }
+  .trend-chart { height: 155px !important; }
+}
+
+/* Red ticker lives immediately beneath the station name when weather alerts are active. */
+.dashboard-header > .min-w-0 { flex: 1 1 auto; min-width: 0; }
+.header-alert-ticker {
+  position: relative; display: flex; align-items: center; width: 100%; max-width: 890px;
+  min-width: 0; height: 32px; margin: 9px 0 3px;
+  overflow: hidden; border: 1px solid rgba(255,164,164,.65); border-radius: 5px;
+  background: linear-gradient(90deg, #ac1523, #781019 75%, #62090f);
+  box-shadow: 0 0 20px rgba(190,19,36,.26); color: #fff;
+}
+.header-alert-label {
+  position: relative; z-index: 2; display: inline-flex; align-items: center; gap: 6px;
+  align-self: stretch; flex: 0 0 auto; padding: 0 11px;
+  border-right: 1px solid rgba(255,255,255,.36); background: #ad1522;
+  color: #fff; font-size: .68rem; font-weight: 850; letter-spacing: .07em; white-space: nowrap;
+}
+.header-alert-scroll { flex: 1 1 auto; min-width: 0; height: 100%; overflow: hidden; color: #fff; text-decoration: none; }
+.header-alert-scroll:focus-visible { outline: 2px solid #fff; outline-offset: -3px; }
+.header-alert-track {
+  display: flex; align-items: center; height: 100%; width: max-content;
+  animation: alert-headline-scroll 24s linear infinite;
+}
+.header-alert-copy {
+  display: inline-flex; align-items: center; flex: none; padding-right: 55px;
+  white-space: nowrap; font-size: .75rem; font-weight: 750; letter-spacing: .04em;
+}
+.header-alert-ticker:hover .header-alert-track,
+.header-alert-ticker:focus-within .header-alert-track { animation-play-state: paused; }
+@keyframes alert-headline-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.header-alert-feed-down {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 7px; padding: 5px 9px;
+  border: 1px solid rgba(251,191,36,.4); border-radius: 5px;
+  background: rgba(120,57,7,.7); color: #fde68a; font-size: .7rem; text-decoration: none;
+}
+@media (max-width: 650px) {
+  .header-alert-ticker { height: 36px; }
+  .header-alert-label { padding-inline: 7px; font-size: .57rem; }
+  .header-alert-copy { font-size: .68rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .header-alert-track { width: 100%; animation: none; overflow: hidden; }
+  .header-alert-copy { overflow: hidden; text-overflow: ellipsis; display: block; max-width: 100%; }
+  .header-alert-copy[aria-hidden="true"] { display: none; }
+}
