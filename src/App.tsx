@@ -624,7 +624,7 @@ function ReportsPage({ data, config, reloadConfig }: { data: WeatherStationData;
   }
 
   const contacts = config?.contacts || [];
-  const canEmail = Boolean(brief?.deliveryConfigured.resend && contacts.some((c) => c.email_enabled && c.email));
+  const canEmail = Boolean(brief?.deliveryConfigured.smtp && contacts.some((c) => c.email_enabled && c.email));
   const canSms = Boolean(brief?.deliveryConfigured.twilio && contacts.some((c) => c.sms_enabled && c.phone_e164));
 
   return (
@@ -653,7 +653,7 @@ function ReportsPage({ data, config, reloadConfig }: { data: WeatherStationData;
           </div>
         </div>
         {status && <div className="status-line">{status}</div>}
-        {!canEmail && <p className="config-note"><Mail className="h-4 w-4" /> Email delivery requires Resend configuration and at least one email-enabled Supabase contact.</p>}
+        {!canEmail && <p className="config-note"><Mail className="h-4 w-4" /> Email delivery requires an active Staley Street Weather SMTP mailbox and at least one email-enabled contact.</p>}
         {!canSms && <p className="config-note"><MessageSquare className="h-4 w-4" /> SMS delivery requires Twilio configuration and at least one SMS-enabled E.164 contact.</p>}
         {!templateWritable && <p className="config-note"><AlertTriangle className="h-4 w-4" /> Supabase writes are blocked because the server service-role JWT is not configured. Template edits are preview-only until writes are available.</p>}
         {brief && (
@@ -812,11 +812,11 @@ function SettingsPage({ data, config, reload }: { data: WeatherStationData; conf
             ['Enabled', String(config?.daily_brief_schedules?.[0]?.enabled ?? false)],
             ['Send time', String(config?.daily_brief_schedules?.[0]?.send_time_local || '07:00')],
             ['Timezone', String(config?.daily_brief_schedules?.[0]?.timezone || 'America/New_York')],
-            ['Email', config?.deliveryConfigured.resend ? 'Configured' : 'Resend required'],
+            ['Email', config?.deliveryConfigured.smtp ? 'SMTP configured' : 'SMTP mailbox required'],
             ['SMS', config?.deliveryConfigured.twilio ? 'Configured' : 'Twilio required'],
             ['Supabase reads', supabaseReadConfigured ? 'Configured' : 'Not configured'],
             ['Supabase writes', supabaseWriteConfigured ? 'Configured' : 'Blocked'],
-            ['Scheduler', 'Requires Supabase scheduled function/cron invocation'],
+            ['Scheduler', 'Vercel daily cron · 7 AM Eastern during daylight saving time'],
           ]} />
         </GlassCard>
         <GlassCard className="page-card settings-card">
