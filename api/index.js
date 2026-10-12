@@ -8,6 +8,7 @@ import dailyBriefSend from '../serverless/daily-brief-send.js';
 import dailyBriefTemplate from '../serverless/daily-brief-template.js';
 import health from '../serverless/health.js';
 import history from '../serverless/history.js';
+import reportHistory from '../serverless/report-history.js';
 import settings from '../serverless/settings.js';
 import settingsTable from '../serverless/settings-table.js';
 import weather from '../serverless/weather-cached.js';
@@ -41,6 +42,7 @@ export default async function handler(req, res) {
     if (pathname === '/api/weather') return weather(req, res);
     if (pathname === '/api/weather/debug') return weatherDebug(req, res);
     if (pathname === '/api/history') return history(req, res);
+    if (pathname === '/api/report-history') return reportHistory(req, res);
     if (pathname === '/api/app-config') return appConfig(req, res);
     if (pathname === '/api/camera-snapshot') return cameraSnapshot(req, res);
     if (pathname === '/api/contacts') return contacts(req, res);
